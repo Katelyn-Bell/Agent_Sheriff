@@ -63,8 +63,9 @@ class AuditStore:
         decision: Decision | None = None,
         policy_version_id: str | None = None,
         since: str | None = None,
+        until: str | None = None,
     ) -> list[AuditEntryDTO]:
-        statement = select(AuditEntry).order_by(AuditEntry.ts.desc()).limit(limit)
+        statement = select(AuditEntry).order_by(AuditEntry.ts.desc())
         if agent_id:
             statement = statement.where(AuditEntry.agent_id == agent_id)
         if decision:
@@ -73,6 +74,9 @@ class AuditStore:
             statement = statement.where(AuditEntry.policy_version_id == policy_version_id)
         if since:
             statement = statement.where(AuditEntry.ts >= _parse_iso(since))
+        if until:
+            statement = statement.where(AuditEntry.ts <= _parse_iso(until))
+        statement = statement.limit(limit)
         return [self.to_dto(row) for row in self.session.scalars(statement).all()]
 
     def apply_approval_resolution(
@@ -113,6 +117,7 @@ class AuditStore:
             risk_score=row.risk_score,
             reason=row.reason,
             matched_rule_id=row.matched_rule_id,
+            heuristic_summary=row.heuristic_summary,
             judge_used=row.judge_used,
             judge_rationale=row.judge_rationale,
             policy_version_id=row.policy_version_id,

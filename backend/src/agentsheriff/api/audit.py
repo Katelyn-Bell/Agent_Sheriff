@@ -17,6 +17,7 @@ def list_audit(
     decision: Decision | None = None,
     policy_version_id: str | None = None,
     since: str | None = None,
+    until: str | None = None,
     session: Session = Depends(get_session),
 ) -> list[AuditEntryDTO]:
     return AuditStore(session).list_entries(
@@ -25,4 +26,5 @@ def list_audit(
         decision=decision,
         policy_version_id=policy_version_id,
         since=since,
+        until=until,
     )

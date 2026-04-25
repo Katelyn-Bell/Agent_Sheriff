@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from collections.abc import Callable
+
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from agentsheriff.models.dto import Decision, EvalResultDTO, EvalRunDTO, EvalStatus, RuleAction, ToolCallRequest
 from agentsheriff.models.orm import AuditEntry, EvalResult, EvalRun
@@ -29,19 +31,48 @@ class EvalStore:
         rows = self.session.scalars(select(EvalResult).where(EvalResult.eval_run_id == eval_id)).all()
         return [self.result_to_dto(row) for row in rows]
 
-    def create_and_run(self, policy_version_id: str, filters: dict[str, str]) -> EvalRunDTO:
+    def create_run(self, policy_version_id: str, filters: dict[str, str]) -> EvalRunDTO:
         policy = PolicyStore(self.session).get_version(policy_version_id)
         if policy is None:
             raise KeyError(policy_version_id)
 
-        audit_rows = self._audit_rows(filters)
         run = EvalRun(
             id=f"eval_{uuid4().hex[:12]}",
             policy_version_id=policy_version_id,
             status=EvalStatus.running.value,
-            total_entries=len(audit_rows),
+            total_entries=len(self._audit_rows(filters)),
         )
         self.session.add(run)
+        self.session.commit()
+        self.session.refresh(run)
+        return self.run_to_dto(run)
+
+    def create_and_run(self, policy_version_id: str, filters: dict[str, str]) -> EvalRunDTO:
+        run = self.create_run(policy_version_id, filters)
+        return self.run_existing(run.id, filters)
+
+    def run_existing(
+        self,
+        eval_id: str,
+        filters: dict[str, str],
+        on_progress: Callable[[EvalRunDTO], None] | None = None,
+    ) -> EvalRunDTO:
+        run = self.session.get(EvalRun, eval_id)
+        if run is None:
+            raise KeyError(eval_id)
+        policy = PolicyStore(self.session).get_version(run.policy_version_id)
+        if policy is None:
+            raise KeyError(run.policy_version_id)
+
+        audit_rows = self._audit_rows(filters)
+        run.status = EvalStatus.running.value
+        run.total_entries = len(audit_rows)
+        run.processed_entries = 0
+        run.agreed = 0
+        run.disagreed = 0
+        run.errored = 0
+        run.completed_at = None
+        self.session.query(EvalResult).filter(EvalResult.eval_run_id == run.id).delete()
         self.session.commit()
 
         agreed = 0
@@ -83,12 +114,18 @@ class EvalStore:
             run.disagreed = disagreed
             run.errored = errored
             self.session.commit()
+            self.session.refresh(run)
+            if on_progress is not None:
+                on_progress(self.run_to_dto(run))
 
         run.status = EvalStatus.completed.value
         run.completed_at = datetime.now(timezone.utc)
         self.session.commit()
         self.session.refresh(run)
-        return self.run_to_dto(run)
+        dto = self.run_to_dto(run)
+        if on_progress is not None:
+            on_progress(dto)
+        return dto
 
     def _audit_rows(self, filters: dict[str, str]) -> list[AuditEntry]:
         statement = select(AuditEntry).order_by(AuditEntry.ts.asc())
@@ -98,6 +135,10 @@ class EvalStore:
             statement = statement.where(AuditEntry.decision == decision)
         if policy_version_id := filters.get("policy_version_id"):
             statement = statement.where(AuditEntry.policy_version_id == policy_version_id)
+        if since := filters.get("since"):
+            statement = statement.where(AuditEntry.ts >= datetime.fromisoformat(since.replace("Z", "+00:00")))
+        if until := filters.get("until"):
+            statement = statement.where(AuditEntry.ts <= datetime.fromisoformat(until.replace("Z", "+00:00")))
         return list(self.session.scalars(statement).all())
 
     def _replay(self, audit: AuditEntry, policy) -> tuple[Decision, str | None, bool, str]:
@@ -152,3 +193,13 @@ class EvalStore:
             replay_reason=row.replay_reason,
             agreement=row.agreement,
         )
+
+
+def run_eval_task(
+    session_factory: sessionmaker[Session],
+    eval_id: str,
+    filters: dict[str, str],
+    on_progress: Callable[[EvalRunDTO], None] | None = None,
+) -> None:
+    with session_factory() as session:
+        EvalStore(session).run_existing(eval_id, filters, on_progress=on_progress)
