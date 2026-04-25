@@ -65,18 +65,63 @@ The CLI exposes several flags that bypass safety rails. Treat any command contai
 
 ## Command Reference
 
-| Subcommand | Purpose |
-| --- | --- |
-| `auth login` | Log in to Kalshi. |
-| `auth whoami` | Print the current authenticated user. |
-| `markets list` | List available markets. |
-| `markets get` | Get details for one market. |
-| `markets orderbook` | Read the order book for a market. |
-| `orders create` | Place a new order. |
-| `orders list` | List the agent's orders. |
-| `orders cancel` | Cancel a single order by id. |
-| `orders cancel-all` | Cancel every open order. |
-| `portfolio balance` | Show account balance. |
-| `portfolio positions` | Show open positions. |
-| `portfolio subaccounts list` | List subaccounts. |
-| `portfolio subaccounts transfer` | Move funds between subaccounts. |
+| Task | Command |
+|------|---------|
+| **Auth** |
+| Login | `kalshi-cli auth login` |
+| Check status | `kalshi-cli auth status` |
+| List API keys | `kalshi-cli auth keys list` |
+| **Markets** |
+| List markets | `kalshi-cli markets list --status open --limit 20` |
+| Get market | `kalshi-cli markets get TICKER` |
+| Order book | `kalshi-cli markets orderbook TICKER` |
+| Recent trades | `kalshi-cli markets trades TICKER --limit 20` |
+| Candlestick chart | `kalshi-cli markets candlesticks TICKER --series SERIES --period 1h` |
+| Browse series | `kalshi-cli markets series list --category Crypto` |
+| **Events** |
+| List events | `kalshi-cli events list --status active --limit 20` |
+| Get event | `kalshi-cli events get EVENT_TICKER` |
+| Event chart | `kalshi-cli events candlesticks EVENT_TICKER --period 1h` |
+| **Trading** |
+| Limit order (buy YES) | `kalshi-cli orders create --market TICKER --side yes --qty 10 --price 50` |
+| Market order | `kalshi-cli orders create --market TICKER --side yes --qty 10 --type market` |
+| Sell contracts | `kalshi-cli orders create --market TICKER --side no --qty 5 --price 30 --action sell` |
+| Amend order | `kalshi-cli orders amend ORDER_ID --price 55` |
+| Cancel order | `kalshi-cli orders cancel ORDER_ID` |
+| Cancel all | `kalshi-cli orders cancel-all` |
+| Batch create | `kalshi-cli orders batch-create --file orders.json` |
+| List resting orders | `kalshi-cli orders list --status resting` |
+| Queue position | `kalshi-cli orders queue ORDER_ID` |
+| **Portfolio** |
+| Balance | `kalshi-cli portfolio balance` |
+| Positions | `kalshi-cli portfolio positions` |
+| Fills | `kalshi-cli portfolio fills --limit 50` |
+| Settlements | `kalshi-cli portfolio settlements` |
+| **Subaccounts** |
+| List | `kalshi-cli portfolio subaccounts list` |
+| Create | `kalshi-cli portfolio subaccounts create` |
+| Transfer | `kalshi-cli portfolio subaccounts transfer --from 1 --to 2 --amount 50000` |
+| **Order Groups** |
+| Create group | `kalshi-cli order-groups create --limit 100` |
+| List groups | `kalshi-cli og list` |
+| Update limit | `kalshi-cli order-groups update-limit GROUP_ID --limit 200` |
+| Delete group | `kalshi-cli order-groups delete GROUP_ID` |
+| **Block Trading** |
+| Create RFQ | `kalshi-cli rfq create --market TICKER --qty 1000` |
+| List RFQs | `kalshi-cli rfq list` |
+| Create quote | `kalshi-cli quotes create --rfq RFQ_ID --price 65` |
+| Accept quote | `kalshi-cli quotes accept QUOTE_ID` |
+| **Streaming** |
+| Live prices | `kalshi-cli watch ticker TICKER` |
+| Orderbook deltas | `kalshi-cli watch orderbook TICKER` |
+| Public trades | `kalshi-cli watch trades` |
+| Your orders | `kalshi-cli watch orders` |
+| Your fills | `kalshi-cli watch fills` |
+| Your positions | `kalshi-cli watch positions` |
+| **Exchange** |
+| Exchange status | `kalshi-cli exchange status` |
+| Schedule | `kalshi-cli exchange schedule` |
+| Announcements | `kalshi-cli exchange announcements` |
+| **Config** |
+| Show config | `kalshi-cli config show` |
+| Set value | `kalshi-cli config set output.format json` |

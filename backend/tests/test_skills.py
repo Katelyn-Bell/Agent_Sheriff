@@ -393,9 +393,11 @@ def test_parser_handles_renamed_kalshi_fixture() -> None:
     parsed = get_parsed_skill("kalshi-trading")
     assert parsed is not None
     names = {command.name for command in parsed.commands}
+    # A representative slice of the table-driven command set. Stable enough
+    # that adding rows to the SKILL.md won't break this test.
     expected = {
         "auth login",
-        "auth whoami",
+        "auth status",
         "markets list",
         "markets get",
         "markets orderbook",
@@ -409,9 +411,11 @@ def test_parser_handles_renamed_kalshi_fixture() -> None:
         "portfolio subaccounts transfer",
     }
     assert expected <= names
-    # The header row should not have been parsed as a command.
-    assert "Subcommand" not in names
-    assert "subcommand" not in names
+    # Section-header rows like ``| **Auth** |`` and table column labels must
+    # never leak through as commands.
+    assert not any(name.startswith("**") for name in names)
+    assert "Task" not in names
+    assert "Command" not in names
 
 
 # ---------------------------------------------------------------------------
