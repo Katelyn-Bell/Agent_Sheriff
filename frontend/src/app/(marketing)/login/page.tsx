@@ -1,34 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { GOOGLE_SIGNIN_URL } from "@/lib/api";
-import { useAppStore } from "@/lib/store";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const setUser = useAppStore((s) => s.setUser);
-
   const startGoogle = () => {
     window.location.href = GOOGLE_SIGNIN_URL;
-  };
-
-  const devContinue = () => {
-    setUser({
-      id: "dev-user",
-      email: "sheriff@agentsheriff.local",
-      name: "Dev Sheriff",
-      avatar_url: null,
-      onboarded: false,
-      created_at: new Date().toISOString(),
-    });
-    router.push("/onboard");
   };
 
   return (
     <main className="flex flex-1 items-center justify-center p-8">
       <div className="w-full max-w-md border border-brass/40 bg-parchment-deep/40 p-8 shadow-[4px_4px_0_#2b1810]">
-        <div className="mb-6 flex flex-col items-center gap-3 text-center">
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <div className="text-brass-dark">
             <svg width="40" height="40" aria-hidden>
               <use href="#sheriff-star" />
@@ -49,20 +32,6 @@ export default function LoginPage() {
         >
           <GoogleGlyph />
           Sign in with Google
-        </button>
-
-        <div className="my-6 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
-          <span className="flex-1 border-t border-brass/40" />
-          <span>dev only</span>
-          <span className="flex-1 border-t border-brass/40" />
-        </div>
-
-        <button
-          type="button"
-          onClick={devContinue}
-          className="w-full border border-dashed border-brass/60 bg-transparent px-4 py-3 text-sm text-ink-soft transition hover:text-ink"
-        >
-          Continue offline (dev) →
         </button>
 
         <p className="mt-6 text-center">

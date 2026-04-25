@@ -5,11 +5,24 @@ from agentsheriff.agents import AgentStore
 from agentsheriff.approvals.queue import ApprovalQueue, redact_args
 from agentsheriff.audit.store import AuditStore
 from agentsheriff.config import Settings
-from agentsheriff.models.dto import ApprovalState, Decision, PolicyStatus, PolicyVersionDTO, RuleAction, ToolCallRequest, ToolCallResponse
+from agentsheriff.models.dto import AgentDTO, ApprovalState, Decision, PolicyStatus, PolicyVersionDTO, RuleAction, ToolCallRequest, ToolCallResponse
 from agentsheriff.policy.engine import evaluate_static_rules
 from agentsheriff.policy.store import PolicyStore
 from agentsheriff.streams import hub
 from agentsheriff.threats import detect_threats, judge_tool_call
+
+
+def _agent_state_payload(agent: AgentDTO) -> dict:
+    return {
+        "agent_id": agent.id,
+        "agent_label": agent.label,
+        "state": agent.state,
+        "request_count": agent.requests_today,
+        "blocked_count": agent.blocked_today,
+        "active_policy_version_id": None,
+        "last_decision": None,
+        "last_seen_at": None,
+    }
 
 
 async def handle_tool_call(
@@ -22,7 +35,10 @@ async def handle_tool_call(
     agent_store: AgentStore | None = None,
 ) -> ToolCallResponse:
     if agent_store is not None:
-        agent_store.upsert_seen(request.agent_id, request.agent_label)
+        was_new = agent_store.get(request.agent_id) is None
+        agent = agent_store.upsert_seen(request.agent_id, request.agent_label)
+        if was_new:
+            hub.broadcast_nowait({"type": "agent_state", "payload": _agent_state_payload(agent)})
 
     if request.tool not in supported_tools():
         audit = audit_store.record(
@@ -64,8 +80,8 @@ async def handle_tool_call(
     if decision == Decision.deny and agent_store is not None:
         matched_rule = _find_rule(evaluation.matched_rule_id, policy.static_rules)
         if matched_rule is not None and matched_rule.jail_on_deny:
-            agent_store.transition(request.agent_id, "jailed")
-            hub.broadcast_nowait({"type": "agent_state", "payload": {"id": request.agent_id, "state": "jailed"}})
+            jailed = agent_store.transition(request.agent_id, "jailed")
+            hub.broadcast_nowait({"type": "agent_state", "payload": _agent_state_payload(jailed)})
 
     execution_summary = None
     approval_id = None

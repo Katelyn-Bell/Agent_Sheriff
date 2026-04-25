@@ -20,6 +20,7 @@ from agentsheriff.models.dto import (
 )
 from agentsheriff.models.orm import Base
 from agentsheriff.policy.store import PolicyStore
+from agentsheriff.streams import hub
 
 
 def _stores():
@@ -211,3 +212,46 @@ def test_gateway_upserts_agent_state() -> None:
     assert agents[0].id == "a1"
     assert agents[0].label == "Deputy One"
     assert agents[0].state == "active"
+
+
+def test_gateway_first_touch_emits_agent_state_frame(monkeypatch) -> None:
+    captured: list[dict] = []
+    monkeypatch.setattr(hub, "broadcast_nowait", lambda frame: captured.append(frame))
+
+    session, policy_store, audit_store = _stores()
+    agent_store = AgentStore(session)
+
+    request = ToolCallRequest(
+        agent_id="new_deputy",
+        agent_label="New Deputy",
+        tool="gmail.read_inbox",
+        args={},
+        context={},
+    )
+    asyncio.run(handle_tool_call(
+        request,
+        policy_store=policy_store,
+        audit_store=audit_store,
+        agent_store=agent_store,
+        settings=_settings(),
+    ))
+
+    agent_state_frames = [f for f in captured if f["type"] == "agent_state"]
+    assert len(agent_state_frames) == 1
+    payload = agent_state_frames[0]["payload"]
+    assert payload["agent_id"] == "new_deputy"
+    assert "id" not in payload
+    assert payload["agent_label"] == "New Deputy"
+    assert payload["state"] == "active"
+
+    captured.clear()
+    asyncio.run(handle_tool_call(
+        request,
+        policy_store=policy_store,
+        audit_store=audit_store,
+        agent_store=agent_store,
+        settings=_settings(),
+    ))
+    session.close()
+
+    assert [f for f in captured if f["type"] == "agent_state"] == []

@@ -47,6 +47,7 @@ class ToolCallContext(BaseModel):
     source_prompt: str | None = None
     source_content: str | None = None
     conversation_id: str | None = None
+    skill_id: str | None = None
 
     model_config = {"extra": "allow"}
 
@@ -77,6 +78,11 @@ class ToolMatchDTO(BaseModel):
     value: str
 
 
+class SkillMatchDTO(BaseModel):
+    kind: Literal["exact", "prefix"]
+    value: str
+
+
 class ArgPredicateDTO(BaseModel):
     path: str
     operator: Literal["equals", "not_equals", "exists", "contains"]
@@ -87,6 +93,7 @@ class StaticRuleDTO(BaseModel):
     id: str
     name: str
     tool_match: ToolMatchDTO
+    skill_match: SkillMatchDTO | None = None
     arg_predicates: list[ArgPredicateDTO] = Field(default_factory=list)
     action: RuleAction
     severity_floor: int | None = Field(default=None, ge=0, le=100)
@@ -133,6 +140,27 @@ class PolicyGenerationResponse(BaseModel):
     judge_prompt: str
     static_rules: list[StaticRuleDTO] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+
+
+class SkillCommandDTO(BaseModel):
+    name: str
+    flags: list[str] = Field(default_factory=list)
+    risky_flags: list[str] = Field(default_factory=list)
+    description: str | None = None
+    example: str | None = None
+
+
+class SkillDTO(BaseModel):
+    id: str
+    name: str
+    description: str | None = None
+    base_command: str
+    commands: list[SkillCommandDTO] = Field(default_factory=list)
+    risky_flags: list[str] = Field(default_factory=list)
+
+
+class SkillLawGenerationRequest(BaseModel):
+    user_intent: str
 
 
 class AgentDTO(BaseModel):
