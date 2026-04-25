@@ -11,7 +11,7 @@ export default function ApprovalsPage() {
   return (
     <section>
       <PageHeader
-        title="Badge Approval"
+        title="Approvals"
         subtitle={
           pending.length === 0
             ? "No pending reviews"

@@ -14,7 +14,7 @@ export default function TownLawsPage() {
   return (
     <section>
       <PageHeader
-        title="Town Laws"
+        title="Laws"
         subtitle="Policy workbench · draft · publish"
         actions={
           draft && (

@@ -41,7 +41,7 @@ export default function TrialRecordDetailPage() {
   return (
     <section>
       <PageHeader
-        title={`Trial Record ${id}`}
+        title={`Eval ${id}`}
         subtitle={
           run
             ? `${run.policy_version_id} · status ${run.status}`

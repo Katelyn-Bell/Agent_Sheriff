@@ -20,7 +20,7 @@ export default function TownOverviewPage() {
   return (
     <section>
       <PageHeader
-        title="Town Overview"
+        title="Overview"
         subtitle="Live activity · policy · evals"
       />
       <KpiRow />
