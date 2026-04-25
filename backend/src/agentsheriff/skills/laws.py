@@ -75,12 +75,9 @@ def generate_skill_laws(
         return _fallback_laws(skill, user_intent, guardrails, vocabulary)
 
     try:
-        # Budget ~120 tokens of output per command in the vocabulary plus
-        # headroom for the intent_summary / judge_prompt / notes envelope.
-        # 1500 was enough for ~25 rules; a 47-command skill needs ~5x that.
         response = client.messages.create(
             model=model_id,
-            max_tokens=max(1500, 200 + 120 * len(skill.commands)),
+            max_tokens=10000,
             temperature=0,
             system=[
                 {
