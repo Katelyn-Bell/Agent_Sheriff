@@ -3,19 +3,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import {
-  BriefcaseBusiness,
-  Calendar,
-  Check,
-  FileText,
-  GitBranch,
-  Globe,
-  Mail,
-  ScrollText,
-  ShieldCheck,
-  Terminal,
-  type LucideIcon,
-} from "lucide-react";
+import { Check, ScrollText, ShieldCheck } from "lucide-react";
 import {
   createPolicy,
   generateSkillLaws,
@@ -29,31 +17,18 @@ import type {
   RuleAction,
   RuleOverrideAction,
   RuleOverrides,
-  SkillCommandDTO,
   SkillDTO,
   StaticRuleDTO,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type WizardStep = "skill" | "inspect" | "suggestions" | "publish";
+type WizardStep = "skill" | "suggestions" | "publish";
 
 const STEPS: { key: WizardStep; label: string }[] = [
   { key: "skill", label: "Pick skill & intent" },
-  { key: "inspect", label: "Inspect tools" },
   { key: "suggestions", label: "AI suggestions" },
   { key: "publish", label: "Publish" },
 ];
-
-const TOOL_ICONS: Record<string, LucideIcon> = {
-  browser: Globe,
-  calendar: Calendar,
-  files: FileText,
-  github: GitBranch,
-  gmail: Mail,
-  shell: Terminal,
-};
-
-const MIN_INTENT_CHARS = 24;
 
 const FALLBACK_SIGNALS = ["fallback", "deterministic", "unavailable"];
 
@@ -142,10 +117,8 @@ export default function NewPolicyPage() {
         return (
           skillId !== null &&
           policyName.trim().length > 0 &&
-          usagePurpose.trim().length >= MIN_INTENT_CHARS
+          usagePurpose.trim().length > 0
         );
-      case "inspect":
-        return true;
       case "suggestions":
         return suggestion !== null;
       case "publish":
@@ -206,7 +179,6 @@ export default function NewPolicyPage() {
               skills={skills}
               skillsLoading={skillsQuery.isLoading}
               skillsError={skillsQuery.isError}
-              selectedSkill={selectedSkill}
               skillId={skillId}
               onSkillIdChange={handleSkillIdChange}
               policyName={policyName}
@@ -228,9 +200,6 @@ export default function NewPolicyPage() {
                 generateMutation.reset();
               }}
             />
-          )}
-          {currentStep.key === "inspect" && (
-            <InspectToolsStep skill={selectedSkill} />
           )}
           {currentStep.key === "suggestions" && (
             <SuggestionsStep
@@ -294,7 +263,7 @@ export default function NewPolicyPage() {
                 disabled={!canContinue}
                 className="border border-ink bg-brass-dark px-6 py-2.5 text-sm font-semibold text-parchment transition hover:bg-brass disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {currentStep.key === "skill" ? "Inspect tools" : "Continue"}
+                {currentStep.key === "skill" ? "Get AI suggestions" : "Continue"}
               </button>
             ) : (
               <span className="font-mono text-[11px] uppercase tracking-widest text-ink-soft">
@@ -347,7 +316,6 @@ function SkillIntentStep({
   skills,
   skillsLoading,
   skillsError,
-  selectedSkill,
   skillId,
   onSkillIdChange,
   policyName,
@@ -360,7 +328,6 @@ function SkillIntentStep({
   skills: SkillDTO[];
   skillsLoading: boolean;
   skillsError: boolean;
-  selectedSkill: SkillDTO | null;
   skillId: string | null;
   onSkillIdChange: (id: string) => void;
   policyName: string;
@@ -412,10 +379,6 @@ function SkillIntentStep({
         )}
       </label>
 
-      {selectedSkill && (
-        <SkillPreviewCard skill={selectedSkill} />
-      )}
-
       <label className="mt-6 block">
         <div className="mb-2 font-heading text-lg text-ink">Policy name</div>
         <input
@@ -440,9 +403,6 @@ function SkillIntentStep({
           className={inputClass}
           placeholder="e.g. Track public market positions and report PnL daily."
         />
-        <div className="mt-2 text-right font-mono text-[10px] uppercase tracking-widest text-ink-soft">
-          {usagePurpose.trim().length} / {MIN_INTENT_CHARS}+ characters
-        </div>
       </label>
 
       <label className="mt-4 block">
@@ -462,143 +422,6 @@ function SkillIntentStep({
         />
       </label>
     </WizardPanel>
-  );
-}
-
-function SkillPreviewCard({ skill }: { skill: SkillDTO }) {
-  const skillRisky = new Set(skill.risky_flags ?? []);
-  return (
-    <div className="mt-4 border border-brass/40 bg-parchment-deep/40 p-4">
-      <div className="font-heading text-xl text-ink">{skill.name}</div>
-      {skill.description && (
-        <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-          {skill.description}
-        </p>
-      )}
-      <div className="mt-3 font-mono text-[11px] uppercase tracking-[0.22em] text-ink-soft">
-        Commands ({skill.commands.length})
-      </div>
-      <ul className="mt-2 space-y-2">
-        {skill.commands.map((command) => {
-          const cmdRisky = new Set(command.risky_flags ?? []);
-          return (
-            <li
-              key={command.name}
-              className="border border-ink/15 bg-parchment p-3"
-            >
-              <div className="font-mono text-sm text-ink">{command.name}</div>
-              {command.flags.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {command.flags.map((flag) => {
-                    const risky = cmdRisky.has(flag) || skillRisky.has(flag);
-                    return (
-                      <span
-                        key={flag}
-                        className={cn(
-                          "border px-1.5 py-0.5 font-mono text-[10px]",
-                          risky
-                            ? "border-wanted-red/60 bg-wanted-red/10 text-wanted-red"
-                            : "border-ink/30 bg-parchment-deep/40 text-ink-soft",
-                        )}
-                      >
-                        {flag}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-function InspectToolsStep({ skill }: { skill: SkillDTO | null }) {
-  if (!skill) {
-    return (
-      <WizardPanel
-        eyebrow="Step 2"
-        title="Inspect tools"
-        subtitle="No skill selected."
-      >
-        <p className="text-sm text-ink-soft">
-          Go back and choose a skill to inspect its commands.
-        </p>
-      </WizardPanel>
-    );
-  }
-  const namespace = skill.base_command.split(/\s|-/)[0] ?? "";
-  const Icon = TOOL_ICONS[namespace] ?? BriefcaseBusiness;
-  const skillRisky = new Set(skill.risky_flags ?? []);
-  return (
-    <WizardPanel
-      eyebrow="Step 2"
-      title="Inspect tools"
-      subtitle="One card per command this skill exposes. The AI is drafting laws in the background while you review."
-      aside={`${skill.commands.length} commands`}
-    >
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {skill.commands.map((command) => (
-          <CommandCard
-            key={command.name}
-            command={command}
-            icon={Icon}
-            skillRisky={skillRisky}
-          />
-        ))}
-      </div>
-    </WizardPanel>
-  );
-}
-
-function CommandCard({
-  command,
-  icon: Icon,
-  skillRisky,
-}: {
-  command: SkillCommandDTO;
-  icon: LucideIcon;
-  skillRisky: Set<string>;
-}) {
-  const cmdRisky = new Set(command.risky_flags ?? []);
-  return (
-    <div className="flex min-h-28 flex-col border border-ink/30 bg-parchment p-4">
-      <div className="flex items-start gap-3">
-        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-brass-dark" />
-        <div className="min-w-0 flex-1">
-          <div className="break-all font-mono text-sm text-ink">
-            {command.name}
-          </div>
-          {command.description && (
-            <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-              {command.description}
-            </p>
-          )}
-        </div>
-      </div>
-      {command.flags.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {command.flags.map((flag) => {
-            const risky = cmdRisky.has(flag) || skillRisky.has(flag);
-            return (
-              <span
-                key={flag}
-                className={cn(
-                  "border px-1.5 py-0.5 font-mono text-[10px]",
-                  risky
-                    ? "border-wanted-red/60 bg-wanted-red/10 text-wanted-red"
-                    : "border-ink/30 bg-parchment-deep/40 text-ink-soft",
-                )}
-              >
-                {flag}
-              </span>
-            );
-          })}
-        </div>
-      )}
-    </div>
   );
 }
 

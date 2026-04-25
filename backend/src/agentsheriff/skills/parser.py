@@ -154,11 +154,14 @@ def _infer_base_command(body: str) -> str | None:
 
 
 def _iter_command_reference_invocations(body: str, base_command: str) -> Iterable[str]:
-    r"""Yield synthesized invocations from the ``## Command Reference`` table.
+    r"""Yield invocations from the ``## Command Reference`` table.
 
-    Each table row's first cell becomes a subcommand suffix. Surrounding
-    backticks are stripped, so cells like ``\`auth login --foo\``` flow through
-    with their flags intact and are split downstream by ``_group_commands``.
+    Scans every cell of every data row and picks the cell that contains a
+    backticked invocation starting with ``base_command``. If no cell does, falls
+    back to the first non-empty cell with surrounding backticks stripped — that
+    handles the legacy table format where the subcommand sat naked in column 1.
+    Section-header rows (single cell with no command) and the markdown header
+    row are skipped naturally.
     """
 
     match = _COMMAND_REFERENCE_RE.search(body)
@@ -175,21 +178,36 @@ def _iter_command_reference_invocations(body: str, base_command: str) -> Iterabl
         cells = [cell.strip() for cell in line.strip("|").split("|")]
         if not cells:
             continue
-        first = cells[0]
         # The markdown table separator (e.g. "| --- | --- |") marks the end of
-        # the header row; everything before it is column labels we should skip.
-        if first and set(first) <= {"-", ":", " "}:
+        # the header row; rows above it are column labels we should skip.
+        if cells[0] and set(cells[0]) <= {"-", ":", " "}:
             past_separator = True
             continue
         if not past_separator:
             continue
-        if not first:
-            continue
-        # Strip surrounding backticks; keep inner content (which may include flags).
-        suffix = first.strip("`").strip()
-        if not suffix:
-            continue
-        invocation = f"{base_command} {suffix}"
+
+        invocation: str | None = None
+        for cell in cells:
+            for token in _INLINE_CODE_RE.findall(cell):
+                stripped = token.strip()
+                if stripped.startswith(f"{base_command} ") or stripped == base_command:
+                    invocation = stripped
+                    break
+            if invocation:
+                break
+
+        if invocation is None:
+            # Legacy layout: no backticked invocation, but column 1 holds the
+            # bare subcommand (e.g. ``auth login``). Synthesize an invocation.
+            first = cells[0].strip("`").strip()
+            if not first:
+                continue
+            # Skip section-header rows like ``| **Auth** |`` — they hold
+            # category labels, not commands.
+            if first.startswith("**") and first.endswith("**"):
+                continue
+            invocation = f"{base_command} {first}"
+
         if invocation in seen:
             continue
         seen.add(invocation)
@@ -279,9 +297,24 @@ def _split_positionals_and_flags(tokens: list[str]) -> tuple[list[str], list[str
             else:
                 index += 1
             continue
+        # Drop CLI-doc placeholders (TICKER, ORDER_ID, EVENT_TICKER, GROUP_ID,
+        # etc.) so the subcommand name stays stable across rows that vary only
+        # by the example value passed in. We treat any token that's all-caps
+        # plus underscores/digits as a placeholder.
+        if _is_placeholder(token):
+            index += 1
+            continue
         positionals.append(token)
         index += 1
     return positionals, flags
+
+
+def _is_placeholder(token: str) -> bool:
+    if not token:
+        return False
+    if not any(ch.isalpha() for ch in token):
+        return False
+    return all(ch.isupper() or ch.isdigit() or ch == "_" for ch in token)
 
 
 def _risky_flags_for(flags: list[str], positionals: list[str]) -> list[str]:
