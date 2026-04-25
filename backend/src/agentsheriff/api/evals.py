@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from agentsheriff.models.dto import Decision, EvalResultDTO, EvalRunDTO, EvalStatus
+from agentsheriff.api.db import get_session
+from agentsheriff.evals import EvalStore
+from agentsheriff.models.dto import EvalResultDTO, EvalRunDTO
 
 router = APIRouter(prefix="/v1/evals", tags=["evals"])
 
@@ -15,53 +16,30 @@ class EvalCreateRequest(BaseModel):
     filters: dict[str, str] = Field(default_factory=dict)
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def _run(run_id: str = "eval_stub", *, status: EvalStatus = EvalStatus.completed) -> EvalRunDTO:
-    return EvalRunDTO(
-        id=run_id,
-        policy_version_id="pv_stub",
-        status=status,
-        created_at=_now(),
-        completed_at=_now() if status == EvalStatus.completed else None,
-        total_entries=1,
-        processed_entries=1 if status == EvalStatus.completed else 0,
-        agreed=1 if status == EvalStatus.completed else 0,
-        disagreed=0,
-        errored=0,
-    )
-
-
 @router.get("", response_model=list[EvalRunDTO])
-def list_evals() -> list[EvalRunDTO]:
-    return [_run()]
+def list_evals(session: Session = Depends(get_session)) -> list[EvalRunDTO]:
+    return EvalStore(session).list_runs()
 
 
 @router.post("", response_model=EvalRunDTO)
-def create_eval(request: EvalCreateRequest) -> EvalRunDTO:
-    _ = request.filters
-    return _run("eval_created", status=EvalStatus.running).model_copy(update={"policy_version_id": request.policy_version_id})
+def create_eval(request: EvalCreateRequest, session: Session = Depends(get_session)) -> EvalRunDTO:
+    try:
+        return EvalStore(session).create_and_run(request.policy_version_id, request.filters)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Policy version not found.") from exc
 
 
 @router.get("/{eval_id}", response_model=EvalRunDTO)
-def get_eval(eval_id: str) -> EvalRunDTO:
-    return _run(eval_id)
+def get_eval(eval_id: str, session: Session = Depends(get_session)) -> EvalRunDTO:
+    run = EvalStore(session).get_run(eval_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Eval run not found.")
+    return run
 
 
 @router.get("/{eval_id}/results", response_model=list[EvalResultDTO])
-def get_eval_results(eval_id: str) -> list[EvalResultDTO]:
-    return [
-        EvalResultDTO(
-            id="er_stub",
-            eval_run_id=eval_id,
-            audit_id="audit_stub",
-            original_decision=Decision.allow,
-            replayed_decision=Decision.allow,
-            matched_rule_id="stub.allow",
-            judge_used=False,
-            replay_reason="Stub replay matched the original decision.",
-            agreement=True,
-        )
-    ]
+def get_eval_results(eval_id: str, session: Session = Depends(get_session)) -> list[EvalResultDTO]:
+    store = EvalStore(session)
+    if store.get_run(eval_id) is None:
+        raise HTTPException(status_code=404, detail="Eval run not found.")
+    return store.list_results(eval_id)
