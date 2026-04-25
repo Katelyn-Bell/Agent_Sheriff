@@ -17,6 +17,10 @@ def install_error_handlers(app: FastAPI) -> None:
     async def validation_exception_handler(_request: Request, _exc: RequestValidationError) -> JSONResponse:
         return error_response(422, "VALIDATION_ERROR", "Request validation failed.")
 
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(_request: Request, _exc: Exception) -> JSONResponse:
+        return error_response(500, "INTERNAL_ERROR", "Internal server error.")
+
 
 def error_response(status_code: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"error": {"code": code, "message": message}})

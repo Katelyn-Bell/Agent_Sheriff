@@ -70,3 +70,19 @@ def test_policy_store_create_and_publish() -> None:
     assert draft.status == PolicyStatus.draft
     assert published.status == PolicyStatus.published
     assert published.published_at is not None
+
+
+def test_policy_store_archive_removes_version_from_active_lookup() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    with Session() as session:
+        store = PolicyStore(session)
+        draft = store.create_draft(PolicyCreateRequest(name="Finance assistant"))
+        published = store.publish(draft.id)
+        archived = store.archive(published.id)
+        active = store.active_published()
+
+    assert archived.status == PolicyStatus.archived
+    assert active is None
