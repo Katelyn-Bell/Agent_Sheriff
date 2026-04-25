@@ -30,29 +30,20 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState<number>(-1);
-  const [direction, setDirection] = useState<"down" | "up">("down");
   const [maxHeight, setMaxHeight] = useState<number>(256);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const current = options.find((o) => o.value === value);
 
-  // Measure available space when opening — flip up if there is not enough
-  // room below, and clamp the panel's max height so it never overflows the
-  // viewport.
+  // Always open downward; clamp max height to the available space below
+  // the trigger so the panel scrolls instead of running off-screen.
   useEffect(() => {
     if (!open || !triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const margin = 12;
     const below = window.innerHeight - rect.bottom - margin;
-    const above = rect.top - margin;
-    if (above > below && below < 200) {
-      setDirection("up");
-      setMaxHeight(Math.max(120, Math.min(320, above)));
-    } else {
-      setDirection("down");
-      setMaxHeight(Math.max(120, Math.min(320, below)));
-    }
+    setMaxHeight(Math.max(120, Math.min(320, below)));
   }, [open]);
 
   useEffect(() => {
@@ -144,10 +135,7 @@ export function Select({
         <ul
           role="listbox"
           style={{ maxHeight }}
-          className={cn(
-            "absolute left-0 right-0 z-20 overflow-auto border border-ink bg-parchment shadow-[4px_4px_0_#2b1810]",
-            direction === "down" ? "top-full mt-1" : "bottom-full mb-1",
-          )}
+          className="absolute left-0 right-0 top-full z-20 mt-1 overflow-auto border border-ink bg-parchment shadow-[4px_4px_0_#2b1810]"
         >
           {options.map((opt, i) => {
             const selected = opt.value === value;
