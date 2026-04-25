@@ -488,6 +488,11 @@ def _anthropic_client(api_key: str | None) -> _LLMClient | None:
     try:
         from anthropic import Anthropic
     except ImportError:
+        logger.warning(
+            "skill_laws_sdk_missing provider=anthropic "
+            "ANTHROPIC_API_KEY is set but the `anthropic` package is not "
+            "installed in this venv; falling back to the next provider."
+        )
         return None
     return Anthropic(api_key=api_key)
 
@@ -499,6 +504,12 @@ def _openai_client(api_key: str | None, model: str) -> _LLMClient | None:
     try:
         from openai import OpenAI
     except ImportError:
+        logger.warning(
+            "skill_laws_sdk_missing provider=openai "
+            "OPENAI_API_KEY is set but the `openai` package is not installed "
+            "in this venv. Run `pip install openai` (or `uv sync`) and "
+            "restart the backend."
+        )
         return None
     raw = OpenAI(api_key=api_key)
     return _OpenAIAdapter(raw, model)
@@ -510,6 +521,11 @@ def _openrouter_client(api_key: str | None, model: str) -> _LLMClient | None:
     try:
         from openai import OpenAI
     except ImportError:
+        logger.warning(
+            "skill_laws_sdk_missing provider=openrouter "
+            "OPENROUTER_API_KEY is set but the `openai` package is not "
+            "installed in this venv (OpenRouter uses the OpenAI SDK)."
+        )
         return None
     raw = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
     return _OpenAIAdapter(raw, model)
