@@ -12,6 +12,7 @@ import type {
   PolicyVersionDTO,
   ToolCallRequest,
   ToolCallResponse,
+  UserDTO,
 } from "./types";
 
 const API_BASE =
@@ -45,6 +46,7 @@ async function apiFetch<T>(path: string, opts: FetchOpts = {}): Promise<T> {
   }
   const res = await fetch(url.toString(), {
     method,
+    credentials: "include",
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
     signal,
@@ -165,6 +167,15 @@ export const runDemoScenario = (scenario: DemoScenario) =>
     method: "POST",
     body: { scenario },
   });
+
+// Auth
+export const getMe = (signal?: AbortSignal) =>
+  apiFetch<UserDTO>("/v1/auth/me", { signal });
+
+export const logout = () =>
+  apiFetch<void>("/v1/auth/logout", { method: "POST" });
+
+export const GOOGLE_SIGNIN_URL = `${API_BASE}/v1/auth/google/start`;
 
 // Health
 export const getHealth = () => apiFetch<HealthResponse>("/health");
