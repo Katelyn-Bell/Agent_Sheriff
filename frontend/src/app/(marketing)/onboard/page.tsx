@@ -518,21 +518,21 @@ function TourStep({
         </>
       }
     >
-      <div className="grid gap-2 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         {NAV_ROUTES.map((route) => {
           const Icon = NAV_ICON_MAP[route.icon] ?? Home;
           const desc = TAB_DESCRIPTIONS[route.href] ?? "";
           return (
             <div
               key={route.href}
-              className="flex items-center gap-3 border border-brass/40 bg-parchment-deep/40 px-3 py-2"
+              className="flex items-start gap-3 border border-brass/40 bg-parchment-deep/40 p-4"
             >
-              <Icon className="h-5 w-5 shrink-0 text-brass-dark" />
+              <Icon className="mt-0.5 h-5 w-5 shrink-0 text-brass-dark" />
               <div className="min-w-0 flex-1">
-                <p className="font-heading text-base leading-tight text-ink">
+                <p className="font-heading text-lg leading-tight text-ink">
                   {route.label}
                 </p>
-                <p className="mt-0.5 truncate text-xs leading-snug text-ink-soft">
+                <p className="mt-1 text-xs leading-snug text-ink-soft">
                   {desc}
                 </p>
               </div>
