@@ -58,22 +58,14 @@ const NAV_ICON_MAP: Record<string, LucideIcon> = {
 };
 
 const TAB_DESCRIPTIONS: Record<string, string> = {
-  "/overview":
-    "Your main view. Live KPIs, the audit ticker, demo launchers, and the active policy at a glance.",
-  "/first-ride":
-    "Re-tailor your policy or start a new one from a fresh intent.",
-  "/laws":
-    "Edit the judge prompt, reorder static rules, and publish new policy versions.",
-  "/ledger":
-    "Every tool call the gateway has decided on. Filter by decision, agent, or search text.",
-  "/approvals":
-    "Pending human approvals with live countdowns. Approve, deny, or redact.",
-  "/deputies":
-    "Your agents. See state, request counts, blocks, and jail or revoke them.",
-  "/wanted":
-    "Blocked calls pinned as wanted posters. The hall of caught outlaws.",
-  "/evals":
-    "Replay historical activity against a draft policy before publishing.",
+  "/overview": "Live KPIs, audit ticker, demo launchers.",
+  "/first-ride": "Re-tailor your policy any time.",
+  "/laws": "Edit rules and publish versions.",
+  "/ledger": "Filterable history of every call.",
+  "/approvals": "Pending reviews with countdowns.",
+  "/deputies": "Agent state, jail, and revoke.",
+  "/wanted": "Blocked attacks pinned as posters.",
+  "/evals": "Replay runs against draft policies.",
 };
 
 interface UseCaseOption {
@@ -526,25 +518,22 @@ function TourStep({
         </>
       }
     >
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-2 md:grid-cols-2">
         {NAV_ROUTES.map((route) => {
           const Icon = NAV_ICON_MAP[route.icon] ?? Home;
           const desc = TAB_DESCRIPTIONS[route.href] ?? "";
           return (
             <div
               key={route.href}
-              className="flex items-start gap-4 border border-brass/40 bg-parchment-deep/40 p-5"
+              className="flex items-center gap-3 border border-brass/40 bg-parchment-deep/40 px-3 py-2"
             >
-              <div className="mt-1 text-brass-dark">
-                <Icon className="h-6 w-6" />
-              </div>
+              <Icon className="h-5 w-5 shrink-0 text-brass-dark" />
               <div className="min-w-0 flex-1">
-                <p className="font-heading text-xl text-ink">{route.label}</p>
-                <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-                  {desc}
+                <p className="font-heading text-base leading-tight text-ink">
+                  {route.label}
                 </p>
-                <p className="mt-2 font-mono text-[11px] uppercase tracking-widest text-brass-dark">
-                  {route.href}
+                <p className="mt-0.5 truncate text-xs leading-snug text-ink-soft">
+                  {desc}
                 </p>
               </div>
             </div>
