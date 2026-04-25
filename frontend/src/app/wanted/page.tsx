@@ -18,7 +18,7 @@ export default function WantedBoardPage() {
   return (
     <section>
       <PageHeader
-        title="Wanted Board"
+        title="Wanted"
         subtitle={
           denies.length === 0
             ? "No outlaws on file"

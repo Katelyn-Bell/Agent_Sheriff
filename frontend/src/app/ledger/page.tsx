@@ -47,7 +47,7 @@ export default function LedgerPage() {
   return (
     <section>
       <PageHeader
-        title="Sheriff's Ledger"
+        title="Ledger"
         subtitle={`${filtered.length} of ${audit.length} entries`}
       />
 

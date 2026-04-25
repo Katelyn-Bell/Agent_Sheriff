@@ -22,7 +22,7 @@ export default function TrialRecordsPage() {
   return (
     <section>
       <PageHeader
-        title="Trial Records"
+        title="Evals"
         subtitle={
           evals.length === 0
             ? "No runs yet"
