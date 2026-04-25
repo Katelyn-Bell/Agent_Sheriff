@@ -20,14 +20,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    // Dev shortcut: keep the fake user authenticated without hitting
-    // the backend. Useful when demoing offline.
-    if (user?.id === DEV_USER_ID) {
-      setAuthVerified(true);
-      setStatus("authed");
-      return;
-    }
-
     let cancelled = false;
     (async () => {
       try {
