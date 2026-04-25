@@ -9,7 +9,7 @@ from agentsheriff.models.dto import Decision, PolicyStatus, PolicyVersionDTO, Ru
 from agentsheriff.policy.engine import evaluate_static_rules
 from agentsheriff.policy.store import PolicyStore
 from agentsheriff.streams import hub
-from agentsheriff.threats.detector import detect_threats, judge_tool_call
+from agentsheriff.threats import detect_threats, judge_tool_call
 
 
 def handle_tool_call(
@@ -83,7 +83,7 @@ def handle_tool_call(
         judge_used=judge_used,
         judge_rationale=judge_rationale,
         policy_version_id=policy.id,
-        heuristic_summary=threat_report.summary(),
+        heuristic_summary=threat_report.as_dict(),
         approval_id=approval_id,
         execution_summary=execution_summary,
         user_explanation=user_explanation,

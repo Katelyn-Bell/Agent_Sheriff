@@ -12,7 +12,7 @@ from agentsheriff.models.dto import Decision, EvalResultDTO, EvalRunDTO, EvalSta
 from agentsheriff.models.orm import AuditEntry, EvalResult, EvalRun
 from agentsheriff.policy.engine import evaluate_static_rules
 from agentsheriff.policy.store import PolicyStore, utc_iso
-from agentsheriff.threats.detector import ThreatReport, judge_tool_call
+from agentsheriff.threats import ThreatReport, ThreatSignal, judge_tool_call
 
 
 class EvalStore:
@@ -173,8 +173,13 @@ class EvalStore:
         )
         heuristic = audit.heuristic_summary or {}
         threat_report = ThreatReport(
-            risk_score=int(heuristic.get("risk_score", audit.risk_score)),
-            signals=list(heuristic.get("signals", [])),
+            aggregate_score=int(heuristic.get("aggregate_score", heuristic.get("risk_score", audit.risk_score))),
+            signals=[
+                ThreatSignal(name=str(signal), score=int(heuristic.get("risk_score", audit.risk_score)), detail=str(signal))
+                for signal in heuristic.get("signals", [])
+            ],
+            summary=str(heuristic.get("summary", "")) or "Reconstructed heuristic report from audit ledger.",
+            recommended_floor=int(heuristic.get("recommended_floor", heuristic.get("risk_score", audit.risk_score))),
         )
         evaluation = evaluate_static_rules(request, policy.static_rules, base_risk_score=threat_report.risk_score)
         if evaluation.action == RuleAction.allow:
