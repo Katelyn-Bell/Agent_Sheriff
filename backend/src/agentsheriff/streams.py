@@ -30,6 +30,13 @@ class StreamHub:
         for websocket in stale:
             self.disconnect(websocket)
 
+    def broadcast_nowait(self, frame: dict[str, Any]) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        loop.create_task(self.broadcast(frame))
+
 
 hub = StreamHub()
 

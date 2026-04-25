@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -63,7 +64,6 @@ class AuditStore:
         policy_version_id: str | None = None,
         since: str | None = None,
     ) -> list[AuditEntryDTO]:
-        _ = since
         statement = select(AuditEntry).order_by(AuditEntry.ts.desc()).limit(limit)
         if agent_id:
             statement = statement.where(AuditEntry.agent_id == agent_id)
@@ -71,6 +71,8 @@ class AuditStore:
             statement = statement.where(AuditEntry.decision == decision.value)
         if policy_version_id:
             statement = statement.where(AuditEntry.policy_version_id == policy_version_id)
+        if since:
+            statement = statement.where(AuditEntry.ts >= _parse_iso(since))
         return [self.to_dto(row) for row in self.session.scalars(statement).all()]
 
     @staticmethod
@@ -94,3 +96,7 @@ class AuditStore:
             execution_summary=row.execution_summary,
             user_explanation=row.user_explanation,
         )
+
+
+def _parse_iso(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))

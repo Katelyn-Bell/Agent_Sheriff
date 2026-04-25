@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+from agentsheriff.agents import AgentStore
 from agentsheriff.api.db import get_session
 from agentsheriff.approvals.queue import ApprovalQueue
 from agentsheriff.audit.store import AuditStore
@@ -25,4 +26,5 @@ def tool_call(
         audit_store=AuditStore(session),
         settings=app_request.app.state.settings,
         approval_queue=ApprovalQueue(session),
+        agent_store=AgentStore(session),
     )

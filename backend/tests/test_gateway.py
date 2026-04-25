@@ -3,6 +3,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from agentsheriff.agents import AgentStore
 from agentsheriff.approvals.queue import ApprovalQueue
 from agentsheriff.audit.store import AuditStore
 from agentsheriff.config import Settings
@@ -149,3 +150,20 @@ def test_gateway_creates_pending_approval_from_static_rule() -> None:
     assert response.approval_id is not None
     assert len(pending) == 1
     assert pending[0].id == response.approval_id
+
+
+def test_gateway_upserts_agent_state() -> None:
+    session, policy_store, audit_store = _stores()
+    agent_store = AgentStore(session)
+
+    handle_tool_call(
+        ToolCallRequest(agent_id="a1", agent_label="Deputy One", tool="gmail.read_inbox", args={}, context={}),
+        policy_store=policy_store,
+        audit_store=audit_store,
+        agent_store=agent_store,
+        settings=_settings(),
+    )
+    agents = agent_store.list()
+    session.close()
+
+    assert agents == [{"id": "a1", "label": "Deputy One", "state": "active"}]

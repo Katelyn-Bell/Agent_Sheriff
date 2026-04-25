@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from agentsheriff.adapters.manifest import DISPATCH, supported_tools
+from agentsheriff.agents import AgentStore
 from agentsheriff.approvals.queue import ApprovalQueue
 from agentsheriff.audit.store import AuditStore
 from agentsheriff.config import Settings
 from agentsheriff.models.dto import Decision, PolicyStatus, PolicyVersionDTO, RuleAction, ToolCallRequest, ToolCallResponse
 from agentsheriff.policy.engine import evaluate_static_rules
 from agentsheriff.policy.store import PolicyStore
+from agentsheriff.streams import hub
 from agentsheriff.threats.detector import detect_threats, judge_tool_call
 
 
@@ -17,7 +19,11 @@ def handle_tool_call(
     audit_store: AuditStore,
     settings: Settings,
     approval_queue: ApprovalQueue | None = None,
+    agent_store: AgentStore | None = None,
 ) -> ToolCallResponse:
+    if agent_store is not None:
+        agent_store.upsert_seen(request.agent_id, request.agent_label)
+
     if request.tool not in supported_tools():
         audit = audit_store.record(
             request=request,
@@ -66,6 +72,7 @@ def handle_tool_call(
             timeout_s=settings.approval_timeout_s,
         )
         approval_id = approval.id
+        hub.broadcast_nowait({"type": "approval", "payload": approval.model_dump(mode="json")})
 
     audit = audit_store.record(
         request=request,
@@ -81,6 +88,7 @@ def handle_tool_call(
         execution_summary=execution_summary,
         user_explanation=user_explanation,
     )
+    hub.broadcast_nowait({"type": "audit", "payload": audit.model_dump(mode="json")})
     return _response_from_audit(audit)
 
 
