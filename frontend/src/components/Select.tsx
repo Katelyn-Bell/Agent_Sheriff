@@ -62,11 +62,9 @@ export function Select({
     const onResize = () => setOpen(false);
     window.addEventListener("mousedown", onClick);
     window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onResize, true);
     return () => {
       window.removeEventListener("mousedown", onClick);
       window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onResize, true);
     };
   }, [open]);
 
