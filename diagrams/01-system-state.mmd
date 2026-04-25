@@ -1,0 +1,60 @@
+flowchart LR
+    subgraph EXT["EXTERNAL (today: nothing connects)"]
+        OC["OpenClaw runtime<br/>skills + tool calls"]
+        KAL["Kalshi API<br/>(or fallback)"]
+    end
+
+    subgraph BACK["BACKEND (FastAPI) - mostly built"]
+        TC["POST /v1/tool-call"]
+        GW["gateway.handle_tool_call"]
+        TH["threats detector"]
+        POL["policy engine<br/>(static rules + judge)"]
+        APR["approvals queue"]
+        DISP["adapters DISPATCH<br/>(gmail, calendar, files,<br/>github, browser, shell)"]
+        AUD["audit store"]
+        HUB["StreamHub broadcast"]
+        SKEP["GET /v1/skills"]
+        KADP["adapters/kalshi.py"]
+    end
+
+    subgraph FRONT["FRONTEND (Next.js) - built but mis-wired"]
+        WS["WS /v1/stream"]
+        STORE["Zustand store"]
+        OV["Overview"]
+        LED["Ledger"]
+        APP["Approvals"]
+        WANT["Wanted / Deputies"]
+        LAW["Laws"]
+        NEW["New Policy wizard<br/>(hardcoded WRONG tool ids)"]
+    end
+
+    OC -.->|MISSING:<br/>inbound translator| TC
+    KAL -.->|MISSING| KADP
+    KADP -.->|MISSING| DISP
+
+    TC --> GW
+    GW --> TH
+    GW --> POL
+    GW --> APR
+    GW --> DISP
+    GW --> AUD
+    GW --> HUB
+
+    HUB --> WS
+    WS --> STORE
+    STORE --> OV
+    STORE --> LED
+    STORE --> APP
+    STORE --> WANT
+    STORE --> LAW
+
+    SKEP -.->|MISSING| NEW
+    NEW --> LAW
+
+    classDef missing stroke:#c00,stroke-width:2px,stroke-dasharray:5 5,fill:#fff5f5
+    classDef built fill:#e6ffe6,stroke:#0a0,stroke-width:1px
+    classDef bug fill:#fff3cd,stroke:#cc8800,stroke-width:2px
+
+    class OC,KAL,KADP,SKEP missing
+    class TC,GW,TH,POL,APR,DISP,AUD,HUB,WS,STORE,OV,LED,APP,WANT,LAW built
+    class NEW bug

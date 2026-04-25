@@ -1,0 +1,55 @@
+flowchart TB
+    subgraph H0["HOUR 0 - whole team (30 min)"]
+        FIX["Fix demo.py:88 async bug<br/>+ first-touch agent_state emit"]
+        DECIDE["Decide: Kalshi keys or fallback API?"]
+        STUB["Person 1 ships stub OpenClaw fixture"]
+    end
+
+    subgraph DAY1["DAY 1"]
+        direction LR
+        subgraph P1["Person 1 - Bridge"]
+            P1a["OpenClaw recon<br/>wire format"]
+            P1b["Inbound translator<br/>OpenClaw to ToolCallRequest"]
+        end
+        subgraph P2["Person 2 - Kalshi"]
+            P2a["Kalshi client<br/>(or fallback)"]
+            P2b["adapters/kalshi.py<br/>+ register in manifest"]
+        end
+        subgraph P3["Person 3 - Backend skills"]
+            P3a["Add skill_id to DTOs<br/>(additive, no migration)"]
+            P3b["GET /v1/skills endpoint"]
+            P3c["engine: skill_match<br/>short-circuit"]
+        end
+        subgraph P4["Person 4 - Frontend"]
+            P4a["Fix hardcoded tool ids<br/>(call GET /v1/tools)"]
+            P4b["types + listSkills()"]
+            P4c["5-step wizard<br/>holster picker"]
+        end
+    end
+
+    subgraph H4["HOUR 4 SYNC"]
+        LOCK["Lock final ToolCallRequest schema<br/>(now informed by W0 evidence)"]
+        CHECK["End-to-end smoke:<br/>OpenClaw call lands in ledger"]
+    end
+
+    subgraph DAY2["DAY 2"]
+        SCEN["Person 2: 3 demo scenarios<br/>(clean / injection / approval)"]
+        BIND["Person 4: brass-star badges<br/>on /laws page"]
+        REH["Whole team: rehearse 3x<br/>+ record backup video"]
+    end
+
+    H0 --> DAY1
+    STUB -.->|fixture unblocks| P2a
+    STUB -.->|fixture unblocks| P3b
+    STUB -.->|fixture unblocks| P4b
+    P1a --> P1b
+    P2a --> P2b
+    P3a --> P3c
+    P3b --> P4b
+    P4a --> P4b --> P4c
+    DAY1 --> H4 --> DAY2
+
+    classDef critical fill:#fff3cd,stroke:#cc8800,stroke-width:2px
+    classDef cut fill:#f0f0f0,stroke:#888,stroke-dasharray:3 3
+    class FIX,DECIDE,LOCK,CHECK critical
+    class BIND cut

@@ -1,0 +1,36 @@
+flowchart LR
+    subgraph TODAY["TODAY - tool-only matching"]
+        T1["Policy rule<br/>tool_match: kalshi.place_order"]
+        T2["ToolCallRequest<br/>tool: kalshi.place_order"]
+        T1 -.match.-> T2
+    end
+
+    subgraph TOMORROW["TOMORROW - skill-bound matching"]
+        S1["OpenClaw skill<br/>id: kalshi-trader<br/>tools: [kalshi.read_market,<br/>kalshi.place_order]"]
+        S2["Policy rule<br/>skill_match: kalshi-trader<br/>tool_match: kalshi.place_order<br/>predicate: amount > 50"]
+        S3["ToolCallRequest<br/>tool: kalshi.place_order<br/>context.skill_id: kalshi-trader<br/>args.amount: 200"]
+
+        S1 --> S2
+        S2 -.skill match.-> S3
+        S2 -.tool match.-> S3
+        S2 -.predicate match.-> S3
+    end
+
+    subgraph WIZARD["NEW POLICY WIZARD"]
+        W1["1. Pick holster<br/>(skill from /v1/skills)"]
+        W2["2. Inspect tools<br/>(chips with risk dots)"]
+        W3["3. State intent<br/>(plain English)"]
+        W4["4. Review rules<br/>(off-holster = red badge)"]
+        W5["5. Sign and publish"]
+
+        W1 --> W2 --> W3 --> W4 --> W5
+    end
+
+    S1 -.populates.-> W1
+    S1 -.populates.-> W2
+    W5 -.creates.-> S2
+
+    classDef new fill:#e6f3ff,stroke:#0066cc,stroke-width:2px
+    classDef old fill:#f0f0f0,stroke:#888
+    class S1,S2,S3,W1,W2,W3,W4,W5 new
+    class T1,T2 old
