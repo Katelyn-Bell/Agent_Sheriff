@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from agentsheriff.api.agents import router as agents_router
 from agentsheriff.api.approvals import router as approvals_router
 from agentsheriff.api.audit import router as audit_router
+from agentsheriff.api.errors import install_error_handlers
 from agentsheriff.api.evals import router as evals_router
 from agentsheriff.api.health import router as health_router
 from agentsheriff.api.policies import router as policies_router
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = session_factory
+    install_error_handlers(app)
 
     app.add_middleware(
         CORSMiddleware,
