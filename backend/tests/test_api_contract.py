@@ -58,6 +58,17 @@ def test_policy_generate_returns_frontend_usable_rules(client: TestClient) -> No
     assert "policy.generated.block_force_push" in rule_ids
 
 
+def test_tools_api_returns_canonical_manifest(client: TestClient) -> None:
+    response = client.get("/v1/tools")
+
+    assert response.status_code == 200
+    tools = {tool["id"]: tool for tool in response.json()}
+    assert "gmail.send_email" in tools
+    assert tools["gmail.send_email"]["namespace"] == "gmail"
+    assert "external_recipient" in tools["gmail.send_email"]["risk_hints"]
+    assert tools["calendar.create_event"]["replay_safe"] is False
+
+
 def test_gateway_audit_and_eval_api_contract(client: TestClient) -> None:
     policy = client.post("/v1/policies", json={
         "name": "API policy",

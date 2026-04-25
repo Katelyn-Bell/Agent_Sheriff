@@ -18,6 +18,7 @@ from agentsheriff.api.evals import router as evals_router
 from agentsheriff.api.health import router as health_router
 from agentsheriff.api.policies import router as policies_router
 from agentsheriff.api.tool_calls import router as tool_calls_router
+from agentsheriff.api.tools import router as tools_router
 from agentsheriff.config import Settings, get_settings
 from agentsheriff.models.orm import Base, build_engine, build_session_factory
 from agentsheriff.streams import router as stream_router
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(tool_calls_router)
+    app.include_router(tools_router)
     app.include_router(policies_router)
     app.include_router(audit_router)
     app.include_router(approvals_router)

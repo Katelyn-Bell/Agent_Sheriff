@@ -53,7 +53,11 @@ def test_approved_request_executes_adapter_and_updates_audit() -> None:
 
     assert resolved.state == ApprovalState.approved
     assert audit.decision == Decision.allow
-    assert audit.execution_summary == {"status": "stubbed", "args": {"to": "team@example.com", "body": "hello"}}
+    assert audit.execution_summary is not None
+    assert audit.execution_summary["status"] == "ok"
+    assert audit.execution_summary["tool"] == "gmail.send_email"
+    assert audit.execution_summary["to"] == "team@example.com"
+    assert audit.execution_summary["body_preview"] == "hello"
 
 
 def test_redacted_request_scrubs_sensitive_args_before_execution() -> None:
@@ -91,7 +95,11 @@ def test_redacted_request_scrubs_sensitive_args_before_execution() -> None:
     assert resolved.args == {"to": "team@example.com", "body": "[REDACTED]", "attachments": []}
     assert audit.decision == Decision.allow
     assert audit.args == resolved.args
-    assert audit.execution_summary == {"status": "stubbed", "args": resolved.args}
+    assert audit.execution_summary is not None
+    assert audit.execution_summary["status"] == "ok"
+    assert audit.execution_summary["tool"] == "gmail.send_email"
+    assert audit.execution_summary["body_preview"] == "[REDACTED]"
+    assert audit.execution_summary["attachments"] == []
 
 
 def test_expired_approval_updates_audit_as_denied() -> None:
