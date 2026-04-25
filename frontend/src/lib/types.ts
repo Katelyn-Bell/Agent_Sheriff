@@ -192,6 +192,15 @@ export interface HealthResponse {
   status: "ok" | string;
 }
 
+export interface UserDTO {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+  onboarded: boolean;
+  created_at: string;
+}
+
 export interface AuditQuery {
   limit?: number;
   agent_id?: string;

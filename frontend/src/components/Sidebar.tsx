@@ -16,6 +16,7 @@ import {
 import { NAV_ROUTES } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { UserMenu } from "./UserMenu";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Home,
@@ -38,7 +39,7 @@ export function Sidebar() {
   return (
     <aside className="flex w-60 shrink-0 flex-col gap-8 border-r border-brass/40 bg-parchment-deep/60 px-4 py-6">
       <Link
-        href="/"
+        href="/overview"
         className="flex items-center gap-3 px-2 text-brass-dark transition hover:text-wanted-red"
       >
         <svg width="32" height="32" aria-hidden>
@@ -74,6 +75,7 @@ export function Sidebar() {
         })}
       </nav>
 
+      <UserMenu />
       <ConnectionStatus />
     </aside>
   );
