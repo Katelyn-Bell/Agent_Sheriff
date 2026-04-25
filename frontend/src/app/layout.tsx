@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Rye, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
 const rye = Rye({
   variable: "--font-rye",
@@ -62,7 +63,7 @@ export default function RootLayout({
             </symbol>
           </defs>
         </svg>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
