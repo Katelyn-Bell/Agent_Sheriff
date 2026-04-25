@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { generatePolicy } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
+import { Select } from "@/components/Select";
 import { useAppStore } from "@/lib/store";
 
 const DEFAULT_TOOL_MANIFEST = [
@@ -133,17 +134,11 @@ export default function NewPolicyPage() {
             label="Domain hint"
             hint="Optional. Nudges the starter rules toward a vertical."
           >
-            <select
+            <Select
               value={domainHint}
-              onChange={(e) => setDomainHint(e.target.value)}
-              className={inputClass}
-            >
-              {DOMAIN_HINTS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              onChange={setDomainHint}
+              options={DOMAIN_HINTS}
+            />
           </Field>
 
           {mutation.isError && (
