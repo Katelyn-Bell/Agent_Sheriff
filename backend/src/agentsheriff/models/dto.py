@@ -113,6 +113,13 @@ class PolicyCreateRequest(BaseModel):
     static_rules: list[StaticRuleDTO] = Field(default_factory=list)
 
 
+class PolicyUpdateRequest(BaseModel):
+    name: str | None = None
+    intent_summary: str | None = None
+    judge_prompt: str | None = None
+    static_rules: list[StaticRuleDTO] | None = None
+
+
 class PolicyGenerationRequest(BaseModel):
     name: str
     user_intent: str
@@ -137,6 +144,10 @@ class ApprovalDTO(BaseModel):
     created_at: str
     expires_at: str
     policy_version_id: str
+
+
+class ApprovalResolveRequest(BaseModel):
+    action: Literal["approve", "deny", "redact"]
 
 
 class AuditEntryDTO(BaseModel):

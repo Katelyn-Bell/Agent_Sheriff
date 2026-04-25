@@ -7,9 +7,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+from agentsheriff.api.agents import router as agents_router
+from agentsheriff.api.approvals import router as approvals_router
+from agentsheriff.api.audit import router as audit_router
+from agentsheriff.api.evals import router as evals_router
 from agentsheriff.api.health import router as health_router
+from agentsheriff.api.policies import router as policies_router
+from agentsheriff.api.tool_calls import router as tool_calls_router
 from agentsheriff.config import Settings, get_settings
 from agentsheriff.models.orm import Base, build_engine, build_session_factory
+from agentsheriff.streams import router as stream_router
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +41,13 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health_router)
+    app.include_router(tool_calls_router)
+    app.include_router(policies_router)
+    app.include_router(audit_router)
+    app.include_router(approvals_router)
+    app.include_router(evals_router)
+    app.include_router(agents_router)
+    app.include_router(stream_router)
 
     logger.info("agentsheriff_started")
     return app
