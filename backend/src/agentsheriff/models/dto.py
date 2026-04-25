@@ -47,6 +47,7 @@ class ToolCallContext(BaseModel):
     source_prompt: str | None = None
     source_content: str | None = None
     conversation_id: str | None = None
+    skill_id: str | None = None
 
     model_config = {"extra": "allow"}
 
@@ -77,6 +78,11 @@ class ToolMatchDTO(BaseModel):
     value: str
 
 
+class SkillMatchDTO(BaseModel):
+    kind: Literal["exact", "prefix"]
+    value: str
+
+
 class ArgPredicateDTO(BaseModel):
     path: str
     operator: Literal["equals", "not_equals", "exists", "contains"]
@@ -87,6 +93,7 @@ class StaticRuleDTO(BaseModel):
     id: str
     name: str
     tool_match: ToolMatchDTO
+    skill_match: SkillMatchDTO | None = None
     arg_predicates: list[ArgPredicateDTO] = Field(default_factory=list)
     action: RuleAction
     severity_floor: int | None = Field(default=None, ge=0, le=100)
