@@ -160,14 +160,48 @@ const TOOLS: ToolOption[] = [
   },
 ];
 
-const CONCERNS = [
-  "Data exfiltration to external addresses",
-  "Destructive shell commands",
-  "Sensitive data in outbound mail",
-  "Repository damage (force-push, deletes)",
-  "Prompt injection from web pages",
-  "Runaway cost or spending",
-];
+function relevantConcerns(useCase: string, tools: string[]): string[] {
+  const set = new Set<string>();
+
+  // Universal — apply to every agent
+  set.add("Prompt injection from web pages or content");
+  set.add("Runaway cost or token spending");
+
+  // Tool-driven
+  if (tools.includes("gmail")) {
+    set.add("Sending mail to addresses outside your organization");
+    set.add("Sensitive data in outbound mail");
+  }
+  if (tools.includes("github")) {
+    set.add("Repository damage (force-push, branch deletes)");
+    set.add("Secrets accidentally committed");
+  }
+  if (tools.includes("shell")) {
+    set.add("Destructive shell commands (rm -rf, sudo)");
+  }
+  if (tools.includes("files")) {
+    set.add("Reading or writing files outside scope");
+  }
+  if (tools.includes("browser")) {
+    set.add("Following untrusted or malicious links");
+  }
+  if (tools.includes("calendar")) {
+    set.add("Inviting external attendees to private events");
+  }
+
+  // Use-case-driven
+  if (useCase === "support") {
+    set.add("Leaking customer PII");
+  }
+  if (useCase === "research") {
+    set.add("Following untrusted or malicious links");
+  }
+  if (useCase === "personal") {
+    set.add("Touching personal data outside the task");
+  }
+
+  return Array.from(set);
+}
 
 const RISK_OPTIONS = [
   {
@@ -191,6 +225,7 @@ interface Answers {
   useCase: string;
   tools: string[];
   concerns: string[];
+  customConcern: string;
   risk: string;
   notes: string;
   name: string;
@@ -200,6 +235,7 @@ const initialAnswers: Answers = {
   useCase: "",
   tools: [],
   concerns: [],
+  customConcern: "",
   risk: "balanced",
   notes: "",
   name: "",
@@ -229,10 +265,14 @@ export default function OnboardPage() {
             .map((t) => TOOLS.find((x) => x.value === t)?.label ?? t)
             .join(", ")
         : "various tools";
+    const allConcerns = [
+      ...answers.concerns,
+      ...(answers.customConcern.trim()
+        ? [answers.customConcern.trim()]
+        : []),
+    ];
     const concernText =
-      answers.concerns.length > 0
-        ? answers.concerns.join("; ")
-        : "general safety";
+      allConcerns.length > 0 ? allConcerns.join("; ") : "general safety";
     const trimmed = answers.notes.trim();
     const trailing = trimmed ? ` Operator notes: ${trimmed}.` : "";
     return `This agent is a ${useCaseLabel}. It uses ${toolLabels}. Primary concerns: ${concernText}. Risk posture: ${answers.risk}.${trailing}`;
@@ -318,7 +358,11 @@ export default function OnboardPage() {
         {step.key === "concerns" && (
           <ConcernsStep
             value={answers.concerns}
+            customValue={answers.customConcern}
             onChange={(v) => update("concerns", v)}
+            onCustomChange={(v) => update("customConcern", v)}
+            useCase={answers.useCase}
+            tools={answers.tools}
             onBack={goBack}
             onNext={goNext}
           />
@@ -682,21 +726,30 @@ function ToolsStep({
 
 function ConcernsStep({
   value,
+  customValue,
   onChange,
+  onCustomChange,
+  useCase,
+  tools,
   onBack,
   onNext,
 }: {
   value: string[];
+  customValue: string;
   onChange: (v: string[]) => void;
+  onCustomChange: (v: string) => void;
+  useCase: string;
+  tools: string[];
   onBack: () => void;
   onNext: () => void;
 }) {
+  const concerns = relevantConcerns(useCase, tools);
   const toggle = (v: string) =>
     onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
   return (
     <StepShell
       title="What worries you most?"
-      hint="Optional. Pick any that apply. The judge will weigh these heavier when calls get borderline."
+      hint="Optional. Pick any that apply, or add your own below. The judge weighs these heavier when calls get borderline."
       footer={
         <>
           <NavButton onClick={onBack}>← Back</NavButton>
@@ -707,7 +760,7 @@ function ConcernsStep({
       }
     >
       <div className="grid gap-3 md:grid-cols-2">
-        {CONCERNS.map((c) => {
+        {concerns.map((c) => {
           const selected = value.includes(c);
           return (
             <button
@@ -730,6 +783,20 @@ function ConcernsStep({
             </button>
           );
         })}
+      </div>
+
+      <div className="mt-6">
+        <label className="mb-2 block font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
+          Other concern (optional)
+        </label>
+        <input
+          type="text"
+          value={customValue}
+          onChange={(e) => onCustomChange(e.target.value)}
+          placeholder="Anything specific to your setup we should weigh"
+          className="w-full border border-ink/40 bg-parchment-deep/40 px-4 py-3 text-sm text-ink transition focus:border-ink focus:outline-none focus:ring-2 focus:ring-brass/30"
+          maxLength={140}
+        />
       </div>
     </StepShell>
   );
