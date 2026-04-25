@@ -10,6 +10,9 @@ import type {
   PolicyGenerationRequest,
   PolicyGenerationResponse,
   PolicyVersionDTO,
+  SkillDTO,
+  SkillLawGenerationRequest,
+  ToolDefinitionDTO,
   ToolCallRequest,
   ToolCallResponse,
   UserDTO,
@@ -105,6 +108,26 @@ export const publishPolicy = (id: string) =>
 
 export const generatePolicy = (req: PolicyGenerationRequest) =>
   apiFetch<PolicyGenerationResponse>("/v1/policies/generate", {
+    method: "POST",
+    body: req,
+  });
+
+// Tools
+export const listTools = (signal?: AbortSignal) =>
+  apiFetch<ToolDefinitionDTO[]>("/v1/tools", { signal });
+
+// Skills
+export const listSkills = (signal?: AbortSignal) =>
+  apiFetch<SkillDTO[]>("/v1/skills", { signal });
+
+export const getSkill = (id: string, signal?: AbortSignal) =>
+  apiFetch<SkillDTO>(`/v1/skills/${id}`, { signal });
+
+export const generateSkillLaws = (
+  id: string,
+  req: SkillLawGenerationRequest,
+) =>
+  apiFetch<PolicyGenerationResponse>(`/v1/skills/${id}/generate-laws`, {
     method: "POST",
     body: req,
   });

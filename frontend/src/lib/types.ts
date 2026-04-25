@@ -19,6 +19,7 @@ export type RuleAction =
   | "delegate_to_judge";
 
 export type ToolMatchKind = "exact" | "namespace";
+export type SkillMatchKind = "exact" | "prefix";
 
 export type DisagreementCategory =
   | "more_permissive"
@@ -28,10 +29,11 @@ export type DisagreementCategory =
   | "error";
 
 export interface ToolCallContext {
-  task_id: string;
-  source_prompt: string;
-  source_content: string;
-  conversation_id: string;
+  task_id?: string | null;
+  source_prompt?: string | null;
+  source_content?: string | null;
+  conversation_id?: string | null;
+  skill_id?: string | null;
   [key: string]: unknown;
 }
 
@@ -72,10 +74,16 @@ export interface ToolMatch {
   value: string;
 }
 
+export interface SkillMatch {
+  kind: SkillMatchKind;
+  value: string;
+}
+
 export interface StaticRuleDTO {
   id: string;
   name: string;
   tool_match: ToolMatch;
+  skill_match?: SkillMatch | null;
   arg_predicates: ArgPredicate[];
   action: RuleAction;
   severity_floor?: number;
@@ -108,6 +116,36 @@ export interface PolicyGenerationResponse {
   judge_prompt: string;
   static_rules: StaticRuleDTO[];
   notes: string[];
+}
+
+export interface ToolDefinitionDTO {
+  id: string;
+  namespace: string;
+  label: string;
+  risk_hints: string[];
+  args_schema_summary: Record<string, string>;
+  replay_safe: boolean;
+}
+
+export interface SkillCommandDTO {
+  name: string;
+  flags: string[];
+  risky_flags: string[];
+  description?: string | null;
+  example?: string | null;
+}
+
+export interface SkillDTO {
+  id: string;
+  name: string;
+  description?: string | null;
+  base_command: string;
+  commands: SkillCommandDTO[];
+  risky_flags: string[];
+}
+
+export interface SkillLawGenerationRequest {
+  user_intent: string;
 }
 
 export interface EvalRunDTO {
