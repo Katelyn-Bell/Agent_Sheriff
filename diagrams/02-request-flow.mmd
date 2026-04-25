@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    participant U as User prompt
+    participant OC as OpenClaw skill<br/>(Kalshi Trader)
+    participant TR as Inbound translator<br/>(NEW - Person 1)
+    participant GW as gateway.handle_tool_call
+    participant POL as policy engine
+    participant KA as adapters/kalshi.py<br/>(NEW - Person 2)
+    participant AU as audit store
+    participant HUB as StreamHub
+    participant DASH as Dashboard
+
+    U->>OC: "buy 10 contracts on event X"
+    OC->>TR: native tool-call payload
+    Note over TR: translates to ToolCallRequest<br/>injects context.skill_id="kalshi-trader"
+    TR->>GW: POST /v1/tool-call
+
+    GW->>HUB: agent_state(status="seen")<br/>(NEW - first-touch fix)
+    HUB-->>DASH: deputy appears on Wanted page
+
+    GW->>POL: evaluate(skill_id, tool, args)
+    alt skill_match fires
+        POL-->>GW: deny / require_approval
+    else passes
+        POL-->>GW: allow
+    end
+
+    alt require_approval
+        GW->>HUB: approval frame
+        HUB-->>DASH: approval card appears
+        DASH->>GW: POST /v1/approvals/{id} (human clicks)
+        GW->>KA: dispatch
+    else allow
+        GW->>KA: dispatch
+    end
+
+    KA-->>GW: result
+    GW->>AU: record audit
+    GW->>HUB: audit frame
+    HUB-->>DASH: ledger row appears live
+
+    GW-->>TR: ToolCallResponse
+    TR-->>OC: native shape
+    OC-->>U: "I bought 10 contracts"
