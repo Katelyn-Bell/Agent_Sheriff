@@ -36,14 +36,15 @@ export function Select({
 
   const current = options.find((o) => o.value === value);
 
-  // Always open downward; clamp max height to the available space below
-  // the trigger so the panel scrolls instead of running off-screen.
+  // Always open downward. Cap the panel at 240px (about 6 rows) so any
+  // longer list always has a visible scrollbar, and shrink further if the
+  // viewport below is smaller than that.
   useEffect(() => {
     if (!open || !triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const margin = 12;
     const below = window.innerHeight - rect.bottom - margin;
-    setMaxHeight(Math.max(120, Math.min(320, below)));
+    setMaxHeight(Math.max(96, Math.min(240, below)));
   }, [open]);
 
   useEffect(() => {
@@ -135,7 +136,7 @@ export function Select({
         <ul
           role="listbox"
           style={{ maxHeight }}
-          className="absolute left-0 right-0 top-full z-20 mt-1 overflow-auto border border-ink bg-parchment shadow-[4px_4px_0_#2b1810]"
+          className="absolute left-0 right-0 top-full z-20 mt-1 overflow-y-auto overflow-x-hidden border border-ink bg-parchment shadow-[4px_4px_0_#2b1810]"
         >
           {options.map((opt, i) => {
             const selected = opt.value === value;
