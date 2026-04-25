@@ -1,54 +1,29 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
-from fastapi import APIRouter
-
+from agentsheriff.api.db import get_session
 from agentsheriff.models.dto import (
     PolicyCreateRequest,
     PolicyGenerationRequest,
     PolicyGenerationResponse,
-    PolicyStatus,
     PolicyUpdateRequest,
     PolicyVersionDTO,
 )
+from agentsheriff.policy.store import PolicyStore
 
 router = APIRouter(prefix="/v1/policies", tags=["policies"])
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def _stub_policy(policy_id: str = "pv_stub", *, status: PolicyStatus = PolicyStatus.draft) -> PolicyVersionDTO:
-    published_at = _now() if status == PolicyStatus.published else None
-    return PolicyVersionDTO(
-        id=policy_id,
-        name="Starter policy",
-        version=1,
-        status=status,
-        intent_summary="Stub policy for frontend integration.",
-        judge_prompt="Review delegated tool calls conservatively.",
-        static_rules=[],
-        created_at=_now(),
-        published_at=published_at,
-    )
-
-
 @router.get("", response_model=list[PolicyVersionDTO])
-def list_policies() -> list[PolicyVersionDTO]:
-    return [_stub_policy()]
+def list_policies(session: Session = Depends(get_session)) -> list[PolicyVersionDTO]:
+    return PolicyStore(session).list_versions()
 
 
 @router.post("", response_model=PolicyVersionDTO)
-def create_policy(request: PolicyCreateRequest) -> PolicyVersionDTO:
-    policy = _stub_policy("pv_draft")
-    return policy.model_copy(update={
-        "name": request.name,
-        "intent_summary": request.intent_summary,
-        "judge_prompt": request.judge_prompt,
-        "static_rules": request.static_rules,
-    })
+def create_policy(request: PolicyCreateRequest, session: Session = Depends(get_session)) -> PolicyVersionDTO:
+    return PolicyStore(session).create_draft(request)
 
 
 @router.post("/generate", response_model=PolicyGenerationResponse)
@@ -62,17 +37,32 @@ def generate_policy(request: PolicyGenerationRequest) -> PolicyGenerationRespons
 
 
 @router.get("/{policy_id}", response_model=PolicyVersionDTO)
-def get_policy(policy_id: str) -> PolicyVersionDTO:
-    return _stub_policy(policy_id)
+def get_policy(policy_id: str, session: Session = Depends(get_session)) -> PolicyVersionDTO:
+    policy = PolicyStore(session).get_version(policy_id)
+    if policy is None:
+        raise HTTPException(status_code=404, detail="Policy version not found.")
+    return policy
 
 
 @router.put("/{policy_id}", response_model=PolicyVersionDTO)
-def update_policy(policy_id: str, request: PolicyUpdateRequest) -> PolicyVersionDTO:
-    policy = _stub_policy(policy_id)
-    updates = request.model_dump(exclude_none=True)
-    return policy.model_copy(update=updates)
+def update_policy(
+    policy_id: str,
+    request: PolicyUpdateRequest,
+    session: Session = Depends(get_session),
+) -> PolicyVersionDTO:
+    try:
+        return PolicyStore(session).update_draft(policy_id, request)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Policy version not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/{policy_id}/publish", response_model=PolicyVersionDTO)
-def publish_policy(policy_id: str) -> PolicyVersionDTO:
-    return _stub_policy(policy_id, status=PolicyStatus.published)
+def publish_policy(policy_id: str, session: Session = Depends(get_session)) -> PolicyVersionDTO:
+    try:
+        return PolicyStore(session).publish(policy_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Policy version not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
