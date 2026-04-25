@@ -7,6 +7,7 @@ import type {
   PolicyVersionDTO,
   StaticRuleDTO,
   StreamFrame,
+  UserDTO,
 } from "./types";
 
 export interface DraftPolicy {
@@ -29,6 +30,7 @@ interface StoreState {
   evals: Record<string, EvalRunDTO>;
   latestPolicy: PolicyVersionDTO | null;
   draftPolicy: DraftPolicy | null;
+  user: UserDTO | null;
   connection: ConnectionState;
   lastHeartbeatTs: number | null;
 
@@ -37,6 +39,7 @@ interface StoreState {
   setConnection: (c: ConnectionState) => void;
   setDraftPolicy: (draft: DraftPolicy | null) => void;
   updateDraftPolicy: (patch: Partial<DraftPolicy>) => void;
+  setUser: (user: UserDTO | null) => void;
 }
 
 export interface Snapshot {
@@ -54,6 +57,7 @@ export const useAppStore = create<StoreState>((set) => ({
   evals: {},
   latestPolicy: null,
   draftPolicy: null,
+  user: null,
   connection: "connecting",
   lastHeartbeatTs: null,
 
@@ -110,6 +114,8 @@ export const useAppStore = create<StoreState>((set) => ({
     set((s) => ({
       draftPolicy: s.draftPolicy ? { ...s.draftPolicy, ...patch } : null,
     })),
+
+  setUser: (user) => set({ user }),
 }));
 
 export const selectPendingApprovals = (s: StoreState) =>
