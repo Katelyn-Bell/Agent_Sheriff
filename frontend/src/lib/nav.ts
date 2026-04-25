@@ -5,7 +5,7 @@ export interface NavRoute {
 }
 
 export const NAV_ROUTES: readonly NavRoute[] = [
-  { href: "/", label: "Overview", icon: "Home" },
+  { href: "/overview", label: "Overview", icon: "Home" },
   { href: "/first-ride", label: "First Ride", icon: "Compass" },
   { href: "/laws", label: "Laws", icon: "Scale" },
   { href: "/ledger", label: "Ledger", icon: "BookOpen" },
