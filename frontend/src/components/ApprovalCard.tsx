@@ -62,9 +62,19 @@ export function ApprovalCard({ approval }: { approval: ApprovalDTO }) {
         </div>
       </div>
 
-      <p className="mb-3.5 text-sm leading-relaxed text-ink">
-        {approval.reason}
+      <p className="mb-2 text-sm leading-relaxed text-ink">
+        {approval.user_explanation ?? approval.reason}
       </p>
+
+      <details className="group mb-3.5">
+        <summary className="cursor-pointer select-none font-mono text-[11px] uppercase tracking-[0.15em] text-ink-soft hover:text-ink">
+          <span className="group-open:hidden">▶ show args</span>
+          <span className="hidden group-open:inline">▼ hide args</span>
+        </summary>
+        <pre className="mt-1.5 max-h-40 overflow-auto rounded-sm bg-parchment-deep p-2 font-mono text-[11px] text-ink leading-relaxed whitespace-pre-wrap break-all">
+          {JSON.stringify(approval.args, null, 2)}
+        </pre>
+      </details>
 
       <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-ink/15">
         <motion.div

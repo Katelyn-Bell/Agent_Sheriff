@@ -1,0 +1,15 @@
+{
+  "id": "oc-call-create-order",
+  "conversation_id": "openclaw-kalshi-demo",
+  "task_id": "create-demo-order",
+  "prompt": "Buy 10 yes contracts on KXBTC-26FEB12-B97000 at 50 cents in demo mode.",
+  "tool_call": {
+    "name": "kalshi.orders_create",
+    "arguments": {
+      "market": "KXBTC-26FEB12-B97000",
+      "side": "yes",
+      "qty": 10,
+      "price": 50
+    }
+  }
+}

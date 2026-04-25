@@ -144,6 +144,7 @@ export interface ApprovalDTO {
   tool: string;
   args: Record<string, unknown>;
   reason: string;
+  user_explanation: string | null;
   created_at: string;
   expires_at: string;
   policy_version_id: string;

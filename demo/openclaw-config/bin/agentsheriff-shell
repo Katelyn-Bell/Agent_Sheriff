@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Route an OpenClaw shell command through AgentSheriff.")
+    parser.add_argument("--command-b64", required=True)
+    parser.add_argument("--cwd-b64", default="")
+    parser.add_argument("--tool", default="exec")
+    parser.add_argument("--session", default="")
+    parser.add_argument("--run-id", default="")
+    parser.add_argument("--tool-call-id", default="")
+    args = parser.parse_args()
+
+    command = _decode(args.command_b64)
+    cwd = _decode(args.cwd_b64) if args.cwd_b64 else ""
+    gateway_url = os.environ.get("AGENTSHERIFF_GATEWAY_URL", "http://127.0.0.1:8000").rstrip("/")
+
+    payload = {
+        "conversation_id": args.session or os.environ.get("OPENCLAW_SESSION_ID", "openclaw-shell"),
+        "task_id": args.tool_call_id or args.run_id or os.environ.get("OPENCLAW_TASK_ID", "openclaw-shell-call"),
+        "prompt": os.environ.get("OPENCLAW_SOURCE_PROMPT", ""),
+        "tool_call": {
+            "tool": args.tool,
+            "args": {
+                "command": command,
+                **({"cwd": cwd} if cwd else {}),
+            },
+        },
+        "context": {
+            "conversation_id": args.session or os.environ.get("OPENCLAW_SESSION_ID", "openclaw-shell"),
+            "task_id": args.tool_call_id or args.run_id or os.environ.get("OPENCLAW_TASK_ID", "openclaw-shell-call"),
+            "openclaw_run_id": args.run_id or None,
+            "openclaw_tool_call_id": args.tool_call_id or None,
+        },
+    }
+
+    request = urllib.request.Request(
+        f"{gateway_url}/v1/openclaw/tool-call",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        sys.stderr.write(exc.read().decode("utf-8", errors="replace"))
+        return 70
+    except Exception as exc:
+        sys.stderr.write(f"AgentSheriff gateway request failed: {exc}\n")
+        return 70
+
+    decision = data.get("decision")
+    if decision != "allow":
+        reason = data.get("reason") or "AgentSheriff blocked this command."
+        sys.stderr.write(f"AgentSheriff decision={decision}: {reason}\n")
+        return 77
+
+    result = data.get("result") or {}
+    stdout = result.get("stdout")
+    stderr = result.get("stderr")
+    if isinstance(stdout, str):
+        sys.stdout.write(stdout)
+    if isinstance(stderr, str):
+        sys.stderr.write(stderr)
+
+    exit_code = result.get("exit_code", 0)
+    return exit_code if isinstance(exit_code, int) else 0
+
+
+def _decode(value: str) -> str:
+    padded = value + "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

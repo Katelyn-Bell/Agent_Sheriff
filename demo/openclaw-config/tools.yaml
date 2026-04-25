@@ -1,8 +1,8 @@
 gateway:
   base_url: ${AGENTSHERIFF_GATEWAY_URL:-http://backend:8000}
-  endpoint: /v1/tool-call
-  agent_id: openclaw-demo
-  agent_label: OpenClaw Demo Agent
+  endpoint: /v1/openclaw/tool-call
+  agent_id: openclaw_kalshi
+  agent_label: Kalshi Trader
   request_method: POST
   request_shape:
     agent_id: ${agent_id}
@@ -14,6 +14,7 @@ gateway:
       source_prompt: ${prompt}
       source_content: ${source_content}
       conversation_id: ${conversation_id}
+      skill_id: kalshi-trading
 
 normalization:
   default_context:
@@ -63,7 +64,8 @@ normalization:
         url: ${url}
     shell.run:
       args:
-        cmd: ${cmd}
+        command: ${command:-}
+        cmd: ${cmd:-}
 
 scenario_prompts:
   good: >

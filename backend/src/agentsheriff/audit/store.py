@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from agentsheriff.models.dto import AuditEntryDTO, Decision, ToolCallRequest
@@ -93,7 +93,7 @@ class AuditStore:
                 AuditEntry.agent_id,
                 func.count().label("requests_today"),
                 func.sum(
-                    func.cast(AuditEntry.decision == Decision.deny.value, int)
+                    case((AuditEntry.decision == Decision.deny.value, 1), else_=0)
                 ).label("blocked_today"),
             )
             .where(AuditEntry.agent_id.in_(agent_ids), AuditEntry.ts >= midnight)

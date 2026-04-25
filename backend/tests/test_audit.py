@@ -58,3 +58,38 @@ def test_audit_filters_by_agent_decision_policy_and_time_window() -> None:
 
     assert [row.id for row in rows] == [hit.id]
     assert rows[0].heuristic_summary == {"risk_score": 90, "signals": ["shell"]}
+
+
+def test_today_counters_tracks_blocked_requests() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    with Session() as session:
+        store = AuditStore(session)
+        store.record(
+            request=ToolCallRequest(agent_id="a1", tool="gmail.read_inbox", args={}, context={}),
+            decision=Decision.allow,
+            risk_score=10,
+            reason="allowed",
+            matched_rule_id="allow_rule",
+            judge_used=False,
+            judge_rationale=None,
+            policy_version_id="pv_1",
+            heuristic_summary={"risk_score": 10, "signals": []},
+        )
+        store.record(
+            request=ToolCallRequest(agent_id="a1", tool="shell.run", args={"cmd": "rm"}, context={}),
+            decision=Decision.deny,
+            risk_score=90,
+            reason="denied",
+            matched_rule_id="deny_rule",
+            judge_used=False,
+            judge_rationale=None,
+            policy_version_id="pv_1",
+            heuristic_summary={"risk_score": 90, "signals": ["shell"]},
+        )
+
+        counters = store.today_counters_for(["a1"])
+
+    assert counters == {"a1": {"requests_today": 2, "blocked_today": 1}}
