@@ -20,6 +20,21 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     policy_path: str | None = Field(default=None, alias="POLICY_PATH")
 
+    google_client_id: str = Field(default="", alias="GOOGLE_CLIENT_ID")
+    google_client_secret: str = Field(default="", alias="GOOGLE_CLIENT_SECRET")
+    oauth_redirect_uri: str = Field(
+        default="http://localhost:8000/v1/auth/google/callback",
+        alias="OAUTH_REDIRECT_URI",
+    )
+    session_secret: str = Field(
+        default="dev-session-secret-change-me", alias="SESSION_SECRET"
+    )
+    session_cookie_name: str = Field(
+        default="agentsheriff_session", alias="SESSION_COOKIE_NAME"
+    )
+    session_max_age_s: int = Field(default=604800, alias="SESSION_MAX_AGE_S")
+    cookie_secure: bool = Field(default=False, alias="COOKIE_SECURE")
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
 

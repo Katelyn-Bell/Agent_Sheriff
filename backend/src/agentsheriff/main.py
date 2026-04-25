@@ -6,10 +6,12 @@ from collections.abc import Iterator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware
 
 from agentsheriff.api.agents import router as agents_router
 from agentsheriff.api.approvals import router as approvals_router
 from agentsheriff.api.audit import router as audit_router
+from agentsheriff.api.auth import router as auth_router
 from agentsheriff.api.demo import router as demo_router
 from agentsheriff.api.errors import install_error_handlers
 from agentsheriff.api.evals import router as evals_router
@@ -42,8 +44,17 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.session_secret,
+        session_cookie=settings.session_cookie_name,
+        max_age=settings.session_max_age_s,
+        same_site="lax",
+        https_only=settings.cookie_secure,
+    )
 
     app.include_router(health_router)
+    app.include_router(auth_router)
     app.include_router(tool_calls_router)
     app.include_router(policies_router)
     app.include_router(audit_router)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, Annotated, Literal, Union
 
@@ -230,3 +231,12 @@ StreamFrame = Annotated[
     Union[AuditFrame, ApprovalFrame, AgentStateFrame, PolicyPublishedFrame, EvalProgressFrame, HeartbeatFrame],
     Field(discriminator="type"),
 ]
+
+
+class UserDTO(BaseModel):
+    id: str
+    email: str
+    name: str
+    avatar_url: str | None = None
+    onboarded: bool = False
+    created_at: datetime
