@@ -1,27 +1,35 @@
 # AgentSheriff — Specs
 
-Hackathon spec set for **AgentSheriff**: an identity, permission, and safety firewall for AI agents. Sits between agents (OpenClaw, etc.) and the tools they call (email, files, shell, GitHub, browser) and decides **allow / deny / require human approval** based on YAML policies + threat detection.
+Spec set for **AgentSheriff**: a local tool-call policy gateway for AI agents. It evaluates actions with deterministic static rules first, a prompted LLM judge second, optional human approval where needed, and a replayable audit ledger behind an Old-West control surface.
 
 ## Read order
 
-1. **[_shared-context.md](_shared-context.md)** — product, demo, tech stack, locked repo layout, API contracts. Ground truth for everything else.
-2. **[integration-and-handoffs.md](integration-and-handoffs.md)** — cross-team contract audit, data-flow diagrams for the 3 demo scenarios, env var catalog, hour-by-hour milestones, dependency blockers, acceptance matrix, gap log.
+1. **[_shared-context.md](_shared-context.md)** — product definition, architecture, stack, locked repo layout, API contracts, and definition of done.
+2. **[integration-and-handoffs.md](integration-and-handoffs.md)** — shared DTOs, endpoint contracts, stream frames, env vars, and ownership boundaries.
 3. Per-person specs (pick your own):
-   - **[person-1-backend-core.md](person-1-backend-core.md)** — FastAPI gateway, policy engine, audit store, approvals queue, WebSocket streams.
-   - **[person-2-threats-simulator.md](person-2-threats-simulator.md)** — threat detector, Claude Haiku/Sonnet classifier, Deputy Dusty demo simulator, scenario JSON.
-   - **[person-3-dashboard-ui.md](person-3-dashboard-ui.md)** — Next.js 15 Old-West-themed dashboard (6 pages + components).
-   - **[person-4-adapters-openclaw-demo.md](person-4-adapters-openclaw-demo.md)** — mock tool adapters, OpenClaw Docker Compose bring-up, demo runbook, pitch deck.
+   - **[person-1-backend-core.md](person-1-backend-core.md)** — FastAPI gateway, policy versions, rule engine, approvals, audit ledger, eval APIs, and streams.
+   - **[person-2-threats-simulator.md](person-2-threats-simulator.md)** — heuristics, judge helper, starter policy generation, replay evaluation helpers, Deputy Dusty, and scenario JSON.
+   - **[person-3-dashboard-ui.md](person-3-dashboard-ui.md)** — Next.js 15 Old-West dashboard for policy authoring, approvals, audit, live activity, and evals.
+   - **[person-4-adapters-openclaw-demo.md](person-4-adapters-openclaw-demo.md)** — adapter manifest, deterministic local adapters, OpenClaw bridge, and demo packaging.
 
 ## Team
 
 Four engineers, parallel work after the hour-0→2 contract freeze. Each spec is self-contained — the goal is zero improvisation.
 
-## Demo (north star)
+## Product + demo
 
-Three scenes, back-to-back in under 60 seconds:
-1. **Good** — agent reads email, creates calendar event → allowed.
-2. **Injection** — agent tries to exfiltrate contacts to an outlaw address → denied, Wanted Poster slams in, deputy jailed.
-3. **Approval** — agent tries to email an invoice to the accountant → requires Sheriff approval; Sheriff clicks Approve; action completes.
+The product is now broader than the original hackathon framing:
+
+1. Generate a starter policy from a user description of what the agent is for.
+2. Edit and publish policy versions made of static rules plus a judge prompt.
+3. Govern live tool calls through the gateway.
+4. Replay historical audit rows against draft policies with eval runs.
+
+The original three demo scenarios still remain the main smoke test and live-demo path:
+
+1. **Good** — normal tool use is allowed.
+2. **Injection** — a malicious or exfiltration-shaped action is denied.
+3. **Approval** — a borderline action pauses for Sheriff review and then completes when approved.
 
 Primary agent: OpenClaw (live). Fallback: Deputy Dusty CLI simulator.
 

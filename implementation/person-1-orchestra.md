@@ -1,22 +1,245 @@
 # Person 1 — Backend Core (Orchestra Run File)
 
 **Owner:** Person 1
-**Working directory:** /Users/ianrowe/git/Agent_Sheriff/backend
-**Branch:** person-1/backend-core off main
+**Working directory:** `/Users/bernardorodrigues/Documents/Code/Agent_Sheriff/backend`
+**Branch:** `person-1/backend-core`
+**Spec:** [`../specs/person-1-backend-core.md`](../specs/person-1-backend-core.md)
+**Shared context:** [`../specs/_shared-context.md`](../specs/_shared-context.md)
+**Integration contract:** [`../specs/integration-and-handoffs.md`](../specs/integration-and-handoffs.md)
 
 ## How to use this file
-Each Run is a synchronization barrier: complete every agent in the Run, satisfy its exit criteria, then move to the next Run. Within a Run, agents are designed to be dispatched in parallel — open one terminal per agent, paste the prompt verbatim, and let it work. Every prompt is self-contained: it names the spec file by absolute path, the branch to push to, the acceptance criterion, and the verification command. Do not edit prompts mid-flight; if the spec is wrong, fix the spec and re-dispatch. The file mirrors the H0→H18 hour budget in `specs/integration-and-handoffs.md` §4.
+
+Each Run is a delivery checkpoint. Finish the Run, verify it, push it, then move to the next one. Agents listed inside a Run may work in parallel only when they touch disjoint files or stable seams.
+
+## Mission
+
+Person 1 builds the local tool-call gateway: DTOs, policy storage, static-rule evaluation, approval flow, audit ledger, replay eval APIs, and live stream frames.
 
 ## Assumptions
-- Python 3.11, `uv` installed, `GATEWAY_ADAPTER_SECRET` exported in every shell that runs the backend, `ANTHROPIC_API_KEY` optional (offline-first; `USE_LLM_CLASSIFIER=0` is the default for tests).
-- `specs/integration-and-handoffs.md` is authoritative — when the per-person spec disagrees with it, integration wins.
-- All merges into `main` are squash-merges. No force-pushes to shared branches.
-- Person 2 (threats) and Person 4 (adapters) are shipping in parallel against frozen import seams; stubs cover for them until H10.
-- SQLite WAL mode is mandatory; backend listens on `:8000`; frontend dev server lives on `:3000`.
+
+- Python 3.11 and `uv` are installed.
+- `GATEWAY_ADAPTER_SECRET` is set in every backend shell.
+- SQLite remains the MVP store.
+- Person 2 supplies heuristics, judge, generator, and replay-comparison helpers.
+- Person 4 supplies `DISPATCH` and the tool manifest.
 
 ---
 
-## Run 1 — Foundation & stubs (H0→H2) — unblocks P2/P3/P4
+## Run 1 — Backend skeleton and frozen contracts
+
+**Purpose.** Create the backend scaffold that unblocks the rest of the team and freezes the wire contract in code.
+
+### Agent 1A — Scaffold backend package, DTOs, ORM, and health route
+
+Read the backend spec sections on settings, DTOs, and persistence. Create the package tree under `backend/src/agentsheriff/` and implement:
+
+- `config.py`
+- `models/dto.py`
+- `models/orm.py`
+- `main.py`
+- `api/health.py`
+
+Make sure `ToolCallRequest`, `ToolCallResponse`, `PolicyVersionDTO`, `ApprovalDTO`, `AuditEntryDTO`, `EvalRunDTO`, `EvalResultDTO`, and the stream-frame union all match the integration doc. Enable SQLite WAL mode and structured JSON logging.
+
+**Acceptance**
+
+- `uv run uvicorn agentsheriff.main:app --port 8000` boots
+- `curl -s localhost:8000/health` returns `{"status":"ok"}`
+- DTO imports succeed from a one-line Python smoke test
+
+### Agent 1B — Stub REST routes and stream hub
+
+Implement typed stub handlers for:
+
+- `POST /v1/tool-call`
+- `GET /v1/policies`
+- `POST /v1/policies`
+- `POST /v1/policies/generate`
+- `GET /v1/audit`
+- `GET /v1/evals`
+- `GET /v1/approvals`
+- `GET /v1/agents`
+- `WS /v1/stream`
+
+Return hard-coded but correctly shaped responses so Person 3 can wire the frontend against real contracts immediately.
+
+**Acceptance**
+
+- all endpoints return 200 with correctly shaped JSON
+- `WS /v1/stream` accepts a connection and emits heartbeat frames
+
+---
+
+## Run 2 — Policy versions, rule engine, and gateway path
+
+**Purpose.** Replace stubs with the real policy-version and rule-first decision flow.
+
+### Agent 2A — Policy store and static-rule evaluator
+
+Implement:
+
+- `policy/store.py`
+- `policy/engine.py`
+- `api/policies.py`
+
+Support:
+
+- create draft policy version
+- list and fetch versions
+- update draft version
+- publish a version
+- archive a version
+
+Static rules must support first-match-wins, `allow`, `deny`, `require_approval`, and `delegate_to_judge`, plus optional `severity_floor`.
+
+**Acceptance**
+
+- can create a draft policy
+- can publish it
+- static-rule evaluation works in isolation with tests
+
+### Agent 2B — Gateway orchestration over heuristics, rules, and judge
+
+Implement `gateway.py` and `api/tool_calls.py` to run:
+
+1. tool validation
+2. normalization
+3. `detect_threats`
+4. active policy load
+5. static rule evaluation
+6. optional `judge_tool_call`
+7. allow or deny path
+
+Do not wire approvals or adapter execution yet beyond stable stubs. Persist an audit row for every decision.
+
+**Acceptance**
+
+- a static-rule allow returns `decision=allow`
+- a static-rule deny returns `decision=deny`
+- an unresolved call uses the judge helper and records `judge_used=true`
+
+---
+
+## Run 3 — Approval flow, adapters, and agent state
+
+**Purpose.** Complete the full execution path and make borderline actions resumable through approval.
+
+### Agent 3A — Approvals queue and approval endpoints
+
+Implement:
+
+- `approvals/queue.py`
+- `api/approvals.py`
+
+Support:
+
+- pending approval creation
+- timeout handling
+- approve, deny, redact resolution
+- server-side redaction transform
+
+**Acceptance**
+
+- a `require_approval` action blocks the request
+- a POST to `/v1/approvals/{id}` resolves the blocked call
+- timed-out approvals become `timed_out`
+
+### Agent 3B — Adapter dispatch and agent-state operations
+
+Wire `DISPATCH` into the allow path and implement:
+
+- `api/agents.py`
+- agent jail / release / revoke transitions
+- `agent_state` stream events
+
+**Acceptance**
+
+- allowed calls execute adapters and attach `result`
+- jailed agents appear in `/v1/agents`
+- release returns them to active state
+
+---
+
+## Run 4 — Replay eval system
+
+**Purpose.** Turn the ledger into a replayable source of policy testing.
+
+### Agent 4A — Eval persistence and async execution
+
+Implement:
+
+- `api/evals.py`
+- eval run creation
+- row replay loop
+- progress persistence
+- `eval_progress` stream events
+
+Replay each audit row against a selected policy version using the stored normalized request and context.
+
+**Acceptance**
+
+- `POST /v1/evals` creates a run
+- progress updates stream live
+- `GET /v1/evals/{id}` and `/results` return aggregates and rows
+
+### Agent 4B — Audit query improvements for replay and UI
+
+Finish `audit/store.py` and `api/audit.py` so the ledger supports:
+
+- filtering by decision, agent, policy version, and time
+- row shapes rich enough for replay and UI drill-down
+
+**Acceptance**
+
+- audit rows include matched rule id, judge usage, approval id, and execution summary
+- ledger filters work through the REST API
+
+---
+
+## Run 5 — Integration hardening
+
+**Purpose.** Make the backend stable against real frontend, heuristics, and adapters.
+
+### Agent 5A — Full backend test pass and error normalization
+
+Add or finish:
+
+- `test_gateway.py`
+- `test_policies.py`
+- `test_evals.py`
+- global error envelope normalization
+
+Normalize errors to:
+
+```json
+{"error":{"code":"UPPER_SNAKE","message":"Human readable"}}
+```
+
+**Acceptance**
+
+- backend tests pass
+- error envelope is consistent
+- logs stay structured and secret-clean
+
+---
+
+## Cross-team handoffs
+
+- **To Person 2:** stable DTOs and policy-version context
+- **To Person 3:** final REST shapes and stream union
+- **To Person 4:** gateway invocation contract for `DISPATCH`
+
+---
+
+## Final acceptance
+
+Person 1 is done when all of these are true:
+
+1. `POST /v1/tool-call` runs rules first and judge second.
+2. approvals work end to end.
+3. audit rows are replayable.
+4. eval runs execute and stream progress.
+5. the `good`, `injection`, and `approval` scenarios pass through the real backend.
 
 **Purpose.** Stand up the backend skeleton so every other person can import the package and hit a live `/health`. Everything in this Run is deliberately fake-but-typed: real DTOs, real ORM, stub business logic — so P2/P3/P4 can wire against frozen seams while real implementations land in Run 2.
 **Dependencies.** None.
