@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from agentsheriff.api.db import get_session
 from agentsheriff.approvals.queue import ApprovalQueue
 from agentsheriff.models.dto import ApprovalDTO, ApprovalResolveRequest, ApprovalState
+from agentsheriff.streams import hub
 
 router = APIRouter(prefix="/v1/approvals", tags=["approvals"])
 
@@ -25,7 +26,9 @@ def resolve_approval(
     session: Session = Depends(get_session),
 ) -> ApprovalDTO:
     try:
-        return ApprovalQueue(session).resolve(approval_id, request.action)
+        approval = ApprovalQueue(session).resolve(approval_id, request.action)
+        hub.broadcast_nowait({"type": "approval", "payload": approval.model_dump(mode="json")})
+        return approval
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Approval not found.") from exc
     except ValueError as exc:

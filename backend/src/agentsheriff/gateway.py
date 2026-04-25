@@ -8,6 +8,7 @@ from agentsheriff.config import Settings
 from agentsheriff.models.dto import Decision, PolicyStatus, PolicyVersionDTO, RuleAction, ToolCallRequest, ToolCallResponse
 from agentsheriff.policy.engine import evaluate_static_rules
 from agentsheriff.policy.store import PolicyStore
+from agentsheriff.streams import hub
 from agentsheriff.threats.detector import detect_threats, judge_tool_call
 
 
@@ -71,6 +72,7 @@ def handle_tool_call(
             timeout_s=settings.approval_timeout_s,
         )
         approval_id = approval.id
+        hub.broadcast_nowait({"type": "approval", "payload": approval.model_dump(mode="json")})
 
     audit = audit_store.record(
         request=request,
@@ -86,6 +88,7 @@ def handle_tool_call(
         execution_summary=execution_summary,
         user_explanation=user_explanation,
     )
+    hub.broadcast_nowait({"type": "audit", "payload": audit.model_dump(mode="json")})
     return _response_from_audit(audit)
 
 

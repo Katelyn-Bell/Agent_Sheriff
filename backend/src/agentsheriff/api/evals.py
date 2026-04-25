@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from agentsheriff.api.db import get_session
 from agentsheriff.evals import EvalStore
 from agentsheriff.models.dto import EvalResultDTO, EvalRunDTO
+from agentsheriff.streams import hub
 
 router = APIRouter(prefix="/v1/evals", tags=["evals"])
 
@@ -24,7 +25,9 @@ def list_evals(session: Session = Depends(get_session)) -> list[EvalRunDTO]:
 @router.post("", response_model=EvalRunDTO)
 def create_eval(request: EvalCreateRequest, session: Session = Depends(get_session)) -> EvalRunDTO:
     try:
-        return EvalStore(session).create_and_run(request.policy_version_id, request.filters)
+        run = EvalStore(session).create_and_run(request.policy_version_id, request.filters)
+        hub.broadcast_nowait({"type": "eval_progress", "payload": run.model_dump(mode="json")})
+        return run
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Policy version not found.") from exc
 
