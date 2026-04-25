@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Rye, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { Sidebar } from "@/components/Sidebar";
 
 const rye = Rye({
   variable: "--font-rye",
@@ -63,7 +64,12 @@ export default function RootLayout({
             </symbol>
           </defs>
         </svg>
-        <Providers>{children}</Providers>
+        <Providers>
+          <div className="flex flex-1">
+            <Sidebar />
+            <main className="flex-1 px-10 py-8">{children}</main>
+          </div>
+        </Providers>
       </body>
     </html>
   );
