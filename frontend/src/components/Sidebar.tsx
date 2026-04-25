@@ -36,7 +36,7 @@ function isActive(pathname: string, href: string) {
 export function Sidebar() {
   const pathname = usePathname();
   return (
-    <aside className="flex w-60 shrink-0 flex-col gap-8 border-r border-brass/40 bg-parchment-deep/60 px-4 py-6">
+    <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col gap-6 border-r border-brass/40 bg-parchment-deep/60 px-4 py-6">
       <Link
         href="/overview"
         className="flex items-center gap-3 px-2 text-brass-dark transition hover:text-wanted-red"
@@ -49,7 +49,7 @@ export function Sidebar() {
         </span>
       </Link>
 
-      <nav className="flex flex-col gap-0.5">
+      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
         <div className="mb-2 px-3 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
           Operations
         </div>
