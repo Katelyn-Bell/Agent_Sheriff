@@ -5,8 +5,18 @@ import type {
   AuditEntryDTO,
   EvalRunDTO,
   PolicyVersionDTO,
+  StaticRuleDTO,
   StreamFrame,
 } from "./types";
+
+export interface DraftPolicy {
+  name: string;
+  intent_summary: string;
+  judge_prompt: string;
+  static_rules: StaticRuleDTO[];
+  notes: string[];
+  source: "generated" | "manual";
+}
 
 const AUDIT_CAP = 200;
 
@@ -18,12 +28,15 @@ interface StoreState {
   agents: Record<string, AgentStateDTO>;
   evals: Record<string, EvalRunDTO>;
   latestPolicy: PolicyVersionDTO | null;
+  draftPolicy: DraftPolicy | null;
   connection: ConnectionState;
   lastHeartbeatTs: number | null;
 
   applyFrame: (frame: StreamFrame) => void;
   rehydrate: (snapshot: Partial<Snapshot>) => void;
   setConnection: (c: ConnectionState) => void;
+  setDraftPolicy: (draft: DraftPolicy | null) => void;
+  updateDraftPolicy: (patch: Partial<DraftPolicy>) => void;
 }
 
 export interface Snapshot {
@@ -40,6 +53,7 @@ export const useAppStore = create<StoreState>((set) => ({
   agents: {},
   evals: {},
   latestPolicy: null,
+  draftPolicy: null,
   connection: "connecting",
   lastHeartbeatTs: null,
 
@@ -89,6 +103,13 @@ export const useAppStore = create<StoreState>((set) => ({
     })),
 
   setConnection: (connection) => set({ connection }),
+
+  setDraftPolicy: (draftPolicy) => set({ draftPolicy }),
+
+  updateDraftPolicy: (patch) =>
+    set((s) => ({
+      draftPolicy: s.draftPolicy ? { ...s.draftPolicy, ...patch } : null,
+    })),
 }));
 
 export const selectPendingApprovals = (s: StoreState) =>
