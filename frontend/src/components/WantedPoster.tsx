@@ -80,21 +80,23 @@ export function WantedPoster({ entry, onClose }: WantedPosterProps) {
           <h3 className="m-0 text-center font-heading text-[52px] leading-[0.95] tracking-[0.02em] text-ink">
             WANTED
           </h3>
-          <p className="mb-2.5 mt-0.5 text-center font-heading text-[12px] tracking-[0.3em] text-wanted-red">
+          <p className="mb-3 mt-0.5 text-center font-heading text-[12px] tracking-[0.3em] text-wanted-red">
             — DEAD TOOL CALL —
           </p>
-          <div
-            className="relative mb-2.5 flex-1 overflow-hidden border-2 border-ink"
-            style={{
-              background:
-                "repeating-linear-gradient(45deg, #5a3f28 0 6px, #3d2a19 6px 12px)",
-            }}
-          >
-            <div className="absolute inset-0 flex items-center justify-center bg-ink/55 font-heading text-[14px] tracking-[0.3em] text-parchment">
-              REDACTED
-            </div>
+
+          <div className="flex flex-1 items-center justify-center">
+            <motion.div
+              variants={reduceMotion ? undefined : stampVariants}
+              initial={reduceMotion ? { opacity: 0 } : undefined}
+              animate={reduceMotion ? { opacity: 1 } : undefined}
+              transition={reduceMotion ? { delay: 0.15, duration: 0.2 } : undefined}
+              className="pointer-events-none whitespace-nowrap border-[5px] border-wanted-red px-5 py-2 font-heading text-[46px] tracking-[0.12em] text-wanted-red"
+            >
+              DENIED
+            </motion.div>
           </div>
-          <div className="border-t border-ink pt-1.5 font-mono text-[10px] leading-[1.55] text-ink">
+
+          <div className="mt-3 space-y-1 border-t border-ink pt-2 font-mono text-[10px] leading-[1.55] text-ink">
             <PosterRow
               label="Agent"
               value={entry.agent_label ?? entry.agent_id}
@@ -112,15 +114,6 @@ export function WantedPoster({ entry, onClose }: WantedPosterProps) {
             <PosterRow label="Time" value={entry.ts} />
           </div>
         </div>
-        <motion.div
-          variants={reduceMotion ? undefined : stampVariants}
-          initial={reduceMotion ? { opacity: 0 } : undefined}
-          animate={reduceMotion ? { opacity: 1 } : undefined}
-          transition={reduceMotion ? { delay: 0.15, duration: 0.2 } : undefined}
-          className="pointer-events-none absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap border-[5px] border-wanted-red px-4 py-1.5 font-heading text-[46px] tracking-[0.12em] text-wanted-red"
-        >
-          DENIED
-        </motion.div>
       </motion.div>
     </motion.div>
   );

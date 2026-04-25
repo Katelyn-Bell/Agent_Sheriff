@@ -106,6 +106,11 @@ export const publishPolicy = (id: string) =>
     method: "POST",
   });
 
+export const archivePolicy = (id: string) =>
+  apiFetch<PolicyVersionDTO>(`/v1/policies/${id}/archive`, {
+    method: "POST",
+  });
+
 export const generatePolicy = (req: PolicyGenerationRequest) =>
   apiFetch<PolicyGenerationResponse>("/v1/policies/generate", {
     method: "POST",

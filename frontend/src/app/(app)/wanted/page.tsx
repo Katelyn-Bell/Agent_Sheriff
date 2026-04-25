@@ -35,7 +35,7 @@ export default function WantedBoardPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {denies.map((e) => (
             <MiniPoster
               key={e.id}
@@ -66,41 +66,69 @@ function MiniPoster({
     <button
       type="button"
       onClick={onClick}
-      className="group block aspect-[3/4] w-full cursor-pointer border border-ink bg-parchment p-3 text-left transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(43,24,16,0.25)]"
+      className="group relative block w-full cursor-pointer overflow-hidden border-2 border-ink bg-parchment p-3 text-left transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(43,24,16,0.25)]"
     >
-      <div className="flex h-full flex-col border-[2px] border-double border-ink px-3 py-2.5">
-        <h3 className="text-center font-heading text-2xl leading-none text-ink">
+      <div className="flex flex-col border-[2px] border-double border-ink px-3 py-3">
+        <h3 className="text-center font-heading text-3xl leading-none text-ink">
           WANTED
         </h3>
-        <p className="mb-2 mt-0.5 text-center font-heading text-[9px] tracking-[0.3em] text-wanted-red">
+        <p className="mt-1 text-center font-heading text-[9px] tracking-[0.3em] text-wanted-red">
           — DEAD TOOL CALL —
         </p>
-        <div
-          className="relative mb-2 flex flex-1 items-center justify-center overflow-hidden border border-ink"
-          style={{
-            background:
-              "repeating-linear-gradient(45deg, #5a3f28 0 6px, #3d2a19 6px 12px)",
-          }}
-        >
-          <span className="bg-ink/60 px-2 py-0.5 font-heading text-[10px] tracking-[0.3em] text-parchment">
-            REDACTED
+
+        <div className="my-3 flex items-center justify-center">
+          <span className="rotate-[-6deg] border-[3px] border-wanted-red px-3 py-1 font-heading text-2xl tracking-[0.12em] text-wanted-red">
+            DENIED
           </span>
         </div>
-        <div className="border-t border-ink pt-1 font-mono text-[9px] leading-[1.4] text-ink">
-          <p className="truncate">
-            <span className="text-ink-soft">Agent: </span>
-            {entry.agent_label ?? entry.agent_id}
-          </p>
-          <p className="truncate">
-            <span className="text-ink-soft">Tool: </span>
-            {entry.tool}
-          </p>
-          <p className="line-clamp-2">
-            <span className="text-ink-soft">Charge: </span>
-            {entry.reason}
-          </p>
+
+        <div className="space-y-1.5 border-t border-ink pt-2 font-mono text-[10px] leading-tight text-ink">
+          <PosterField label="Agent" value={entry.agent_label ?? entry.agent_id} />
+          <PosterField label="Tool" value={entry.tool} mono />
+          <PosterField label="Charge" value={entry.reason} multiline />
+          <PosterField label="Time" value={formatTime(entry.ts)} />
         </div>
       </div>
     </button>
   );
+}
+
+function PosterField({
+  label,
+  value,
+  mono = false,
+  multiline = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  multiline?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-[8px] uppercase tracking-[0.22em] text-ink-soft">
+        {label}
+      </div>
+      <div
+        className={`text-[11px] leading-snug text-ink ${mono ? "font-mono" : ""} ${multiline ? "line-clamp-2" : "truncate"}`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
 }

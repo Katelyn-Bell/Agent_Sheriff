@@ -92,5 +92,6 @@ async def run_demo(
         settings=app_request.app.state.settings,
         approval_queue=ApprovalQueue(session),
         agent_store=AgentStore(session),
+        notifier=getattr(app_request.app.state, "notifier", None),
     )
     return DemoRunResponse(status=result.decision, task_id=result.audit_id)

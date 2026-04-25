@@ -25,7 +25,7 @@ class StreamHub:
         for websocket in self._connections:
             try:
                 await websocket.send_json(frame)
-            except RuntimeError:
+            except (RuntimeError, WebSocketDisconnect):
                 stale.append(websocket)
         for websocket in stale:
             self.disconnect(websocket)
@@ -48,5 +48,7 @@ async def stream(websocket: WebSocket) -> None:
         while True:
             await websocket.send_json({"type": "heartbeat", "ts": int(time.time())})
             await asyncio.sleep(5)
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
+        # Either the client disconnected cleanly (WebSocketDisconnect) or we
+        # tried to send after a close was already initiated (RuntimeError).
         hub.disconnect(websocket)
