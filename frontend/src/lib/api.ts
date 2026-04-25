@@ -31,7 +31,7 @@ export class ApiError extends Error {
 type FetchOpts = {
   method?: string;
   body?: unknown;
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Record<string, unknown>;
   signal?: AbortSignal;
 };
 
@@ -125,7 +125,7 @@ export const getEvalResults = (id: string, signal?: AbortSignal) =>
 
 // Audit
 export const listAudit = (q: AuditQuery = {}, signal?: AbortSignal) =>
-  apiFetch<AuditEntryDTO[]>("/v1/audit", { query: q, signal });
+  apiFetch<AuditEntryDTO[]>("/v1/audit", { query: { ...q }, signal });
 
 // Approvals
 export const listApprovals = (

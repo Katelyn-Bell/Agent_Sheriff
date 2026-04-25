@@ -19,7 +19,7 @@ export function DenySlamGate() {
     if (seenIds.current.has(first.id)) return;
     seenIds.current.add(first.id);
     if (first.decision !== "deny") return;
-    const age = Date.now() - new Date(first.created_at).getTime();
+    const age = Date.now() - new Date(first.ts).getTime();
     if (Number.isNaN(age) || age > FRESH_MS) return;
     setShowing(first);
   }, [audit]);

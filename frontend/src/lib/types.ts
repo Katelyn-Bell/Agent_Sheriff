@@ -156,13 +156,13 @@ export type ApprovalResolution = "approve" | "deny" | "redact";
 // when backend ORM/DTO lands.
 export interface AuditEntryDTO {
   id: string;
-  created_at: string;
+  ts: string;
   agent_id: string;
   agent_label?: string;
   tool: string;
   args: Record<string, unknown>;
   context: ToolCallContext;
-  heuristic_signals: string[];
+  heuristic_summary: Record<string, unknown>;
   risk_score: number;
   matched_rule_id: string | null;
   judge_used: boolean;
@@ -171,8 +171,7 @@ export interface AuditEntryDTO {
   reason: string;
   user_explanation: string | null;
   approval_id: string | null;
-  approval_state: ApprovalState | null;
-  execution_result: ExecutionResult | null;
+  execution_summary: Record<string, unknown> | null;
   policy_version_id: string;
 }
 

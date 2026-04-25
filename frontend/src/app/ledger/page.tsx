@@ -126,7 +126,7 @@ function LedgerRow({ entry }: { entry: AuditEntryDTO }) {
         className="flex w-full items-baseline gap-3 px-4 py-2.5 text-left"
       >
         <span className="font-mono text-[11px] text-ink-soft">
-          {formatTime(entry.created_at)}
+          {formatTime(entry.ts)}
         </span>
         <span className="font-mono text-[11px] text-ink">
           {entry.agent_label ?? entry.agent_id}
@@ -170,13 +170,12 @@ function LedgerDetail({ entry }: { entry: AuditEntryDTO }) {
         />
         <Meta label="Risk" value={String(entry.risk_score)} accent="brass" />
         <Meta
-          label="Approval"
-          value={entry.approval_state ?? "—"}
-          accent={entry.approval_state === "approved" ? "amber" : undefined}
+          label="Approval ID"
+          value={entry.approval_id ?? "—"}
         />
         <Meta
           label="Signals"
-          value={entry.heuristic_signals.join(", ") || "none"}
+          value={Object.keys(entry.heuristic_summary).join(", ") || "none"}
         />
       </div>
       {entry.judge_rationale && (
@@ -189,10 +188,10 @@ function LedgerDetail({ entry }: { entry: AuditEntryDTO }) {
           </p>
         </div>
       )}
-      {entry.execution_result && (
+      {entry.execution_summary && (
         <DetailCode
           label="Execution result"
-          value={entry.execution_result}
+          value={entry.execution_summary}
         />
       )}
     </div>

@@ -112,7 +112,7 @@ function AuditRow({ entry }: { entry: AuditEntryDTO }) {
   return (
     <li className="py-2.5 first:pt-0 last:pb-0">
       <div className="flex items-baseline gap-3 font-mono text-[11px]">
-        <span className="text-ink-soft">{formatTime(entry.created_at)}</span>
+        <span className="text-ink-soft">{formatTime(entry.ts)}</span>
         <span className="text-ink">{entry.agent_label ?? entry.agent_id}</span>
         <span className="text-ink-soft">→</span>
         <span className="text-ink">{entry.tool}</span>

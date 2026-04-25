@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from agentsheriff.api.agents import router as agents_router
 from agentsheriff.api.approvals import router as approvals_router
 from agentsheriff.api.audit import router as audit_router
+from agentsheriff.api.demo import router as demo_router
 from agentsheriff.api.errors import install_error_handlers
 from agentsheriff.api.evals import router as evals_router
 from agentsheriff.api.health import router as health_router
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(approvals_router)
     app.include_router(evals_router)
     app.include_router(agents_router)
+    app.include_router(demo_router)
     app.include_router(stream_router)
 
     logger.info("agentsheriff_started")

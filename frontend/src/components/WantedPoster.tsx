@@ -109,7 +109,7 @@ export function WantedPoster({ entry, onClose }: WantedPosterProps) {
                   : `${entry.policy_version_id} · judge`
               }
             />
-            <PosterRow label="Time" value={entry.created_at} />
+            <PosterRow label="Time" value={entry.ts} />
           </div>
         </div>
         <motion.div
