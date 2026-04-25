@@ -13,6 +13,7 @@ from agentsheriff.models.dto import ApprovalDTO
 logger = logging.getLogger(__name__)
 
 _API = "https://api.telegram.org"
+_SEND_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
 
 # Maximum characters in callback_data is 64 bytes.
 # "approve:" + approval_id (approval_ + 12 hex = 21) = 29 — safely within limit.
@@ -48,7 +49,7 @@ class TelegramApprovalNotifier:
             ]]
         }
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=_SEND_TIMEOUT) as client:
                 resp = await client.post(
                     f"{self._base}/sendMessage",
                     json={
@@ -76,7 +77,7 @@ class TelegramApprovalNotifier:
         }
         label = labels.get(resolution, resolution)
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=_SEND_TIMEOUT) as client:
                 # Remove the inline keyboard from the original message
                 await client.post(
                     f"{self._base}/editMessageReplyMarkup",

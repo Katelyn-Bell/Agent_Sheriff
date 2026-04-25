@@ -35,8 +35,10 @@ export function ApprovalCard({ approval }: { approval: ApprovalDTO }) {
   const ss = String(Math.floor((msLeft % 60000) / 1000)).padStart(2, "0");
 
   const [resolving, setResolving] = useState<ApprovalResolution | null>(null);
+  const isPending = approval.state === "pending";
+  const actionsDisabled = !isPending || !!resolving;
   const resolve = async (action: ApprovalResolution) => {
-    if (resolving) return;
+    if (actionsDisabled) return;
     setResolving(action);
     try {
       await resolveApproval(approval.id, action);
@@ -63,7 +65,7 @@ export function ApprovalCard({ approval }: { approval: ApprovalDTO }) {
       </div>
 
       <p className="mb-2 text-sm leading-relaxed text-ink">
-        {approval.user_explanation ?? approval.reason}
+        {approval.user_explanation || approval.reason}
       </p>
 
       <details className="group mb-3.5">
@@ -121,21 +123,21 @@ export function ApprovalCard({ approval }: { approval: ApprovalDTO }) {
       <div className="flex gap-2">
         <ActionBtn
           variant="approve"
-          disabled={!!resolving}
+          disabled={actionsDisabled}
           onClick={() => resolve("approve")}
         >
           {resolving === "approve" ? "…" : "Approve"}
         </ActionBtn>
         <ActionBtn
           variant="deny"
-          disabled={!!resolving}
+          disabled={actionsDisabled}
           onClick={() => resolve("deny")}
         >
           {resolving === "deny" ? "…" : "Deny"}
         </ActionBtn>
         <ActionBtn
           variant="redact"
-          disabled={!!resolving}
+          disabled={actionsDisabled}
           onClick={() => resolve("redact")}
         >
           {resolving === "redact" ? "…" : "Redact"}
