@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3e9d2;
+  --foreground: #2b1810;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* Old-West palette (spec-locked) */
+  --color-parchment: #f3e9d2;
+  --color-parchment-deep: #e8dcbe;
+  --color-brass: #b8864b;
+  --color-brass-light: #d4a574;
+  --color-brass-dark: #8a5f2d;
+  --color-wanted-red: #a4161a;
+  --color-approval-amber: #d99b2b;
+  --color-ink: #2b1810;
+  --color-ink-soft: #5a3f28;
+
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-rye);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
+}
+
+/* Parchment noise overlay: one fixed layer, filtered once. Cheaper than
+   re-filtering every element. Real content lifts above via body > *. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: var(--parchment);
+  filter: url(#parchment-noise);
+  opacity: 0.55;
+  mix-blend-mode: multiply;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
