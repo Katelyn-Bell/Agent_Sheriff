@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import { useShallow } from "zustand/shallow";
 import { PageHeader } from "@/components/PageHeader";
 import {
   API_BASE_URL,
@@ -36,7 +37,7 @@ export default function TownOverviewPage() {
 }
 
 function KpiRow() {
-  const kpis = useAppStore(selectKpis);
+  const kpis = useAppStore(useShallow(selectKpis));
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
       <Kpi label="Allowed" value={kpis.allowed} accent="ink" />
@@ -230,7 +231,7 @@ function PublishedPolicyCard() {
 }
 
 function LatestEvalCard() {
-  const evals = useAppStore(selectEvalsList);
+  const evals = useAppStore(useShallow(selectEvalsList));
   const latest = evals[0];
   return (
     <Panel title="Latest eval">

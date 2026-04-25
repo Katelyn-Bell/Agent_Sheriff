@@ -30,6 +30,11 @@ body {
   color: var(--foreground);
 }
 
+*:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
+}
+
 /* Parchment noise overlay: one fixed layer, filtered once. Cheaper than
    re-filtering every element. Real content lifts above via body > *. */
 body::before {

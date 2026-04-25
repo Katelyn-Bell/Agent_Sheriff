@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { resolveApproval } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,7 @@ const DEFAULT_TOTAL_MS = 120_000;
 const URGENT_THRESHOLD_MS = 10_000;
 
 export function ApprovalCard({ approval }: { approval: ApprovalDTO }) {
+  const reduceMotion = useReducedMotion();
   const expiresAt = new Date(approval.expires_at).getTime();
   const createdAt = new Date(approval.created_at).getTime();
   const totalMs =
@@ -71,9 +72,13 @@ export function ApprovalCard({ approval }: { approval: ApprovalDTO }) {
             "h-full",
             urgent ? "bg-wanted-red" : "bg-approval-amber",
           )}
-          animate={urgent ? { opacity: [1, 0.55, 1] } : { opacity: 1 }}
+          animate={
+            urgent && !reduceMotion
+              ? { opacity: [1, 0.55, 1] }
+              : { opacity: 1 }
+          }
           transition={
-            urgent
+            urgent && !reduceMotion
               ? { duration: 1, repeat: Infinity }
               : { duration: 0.2 }
           }
@@ -88,9 +93,13 @@ export function ApprovalCard({ approval }: { approval: ApprovalDTO }) {
             "font-heading text-[15px] tabular-nums",
             urgent ? "text-wanted-red" : "text-ink",
           )}
-          animate={urgent ? { opacity: [1, 0.55, 1] } : { opacity: 1 }}
+          animate={
+            urgent && !reduceMotion
+              ? { opacity: [1, 0.55, 1] }
+              : { opacity: 1 }
+          }
           transition={
-            urgent
+            urgent && !reduceMotion
               ? { duration: 1, repeat: Infinity }
               : { duration: 0.2 }
           }

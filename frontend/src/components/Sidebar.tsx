@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { NAV_ROUTES } from "@/lib/nav";
 import { cn } from "@/lib/utils";
+import { ConnectionStatus } from "./ConnectionStatus";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Home,
@@ -60,7 +61,7 @@ export function Sidebar() {
               key={route.href}
               href={route.href}
               className={cn(
-                "flex items-center gap-3 border-l-2 py-2 pr-3 pl-[10px] text-sm transition",
+                "flex items-center gap-3 border-l-2 py-2 pr-3 pl-[10px] text-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brass",
                 active
                   ? "border-wanted-red bg-parchment/60 text-wanted-red"
                   : "border-transparent text-ink-soft hover:border-brass/60 hover:text-ink",
@@ -72,6 +73,8 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      <ConnectionStatus />
     </aside>
   );
 }

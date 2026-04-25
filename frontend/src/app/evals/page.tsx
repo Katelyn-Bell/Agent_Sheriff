@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
+import { useShallow } from "zustand/shallow";
 import { createEval } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { selectEvalsList, useAppStore } from "@/lib/store";
@@ -9,7 +10,7 @@ import type { EvalRunDTO } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export default function TrialRecordsPage() {
-  const evals = useAppStore(selectEvalsList);
+  const evals = useAppStore(useShallow(selectEvalsList));
   const latestPolicy = useAppStore((s) => s.latestPolicy);
 
   const mutation = useMutation({

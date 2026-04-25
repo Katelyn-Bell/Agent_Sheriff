@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import { useShallow } from "zustand/shallow";
 import { jailAgent, releaseAgent, revokeAgent } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { selectAgentsList, useAppStore } from "@/lib/store";
@@ -8,7 +9,7 @@ import type { AgentState, AgentStateDTO, Decision } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export default function DeputiesPage() {
-  const agents = useAppStore(selectAgentsList);
+  const agents = useAppStore(useShallow(selectAgentsList));
   return (
     <section>
       <PageHeader

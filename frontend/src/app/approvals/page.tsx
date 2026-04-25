@@ -1,11 +1,12 @@
 "use client";
 
+import { useShallow } from "zustand/shallow";
 import { ApprovalCard } from "@/components/ApprovalCard";
 import { PageHeader } from "@/components/PageHeader";
 import { selectPendingApprovals, useAppStore } from "@/lib/store";
 
 export default function ApprovalsPage() {
-  const pending = useAppStore(selectPendingApprovals);
+  const pending = useAppStore(useShallow(selectPendingApprovals));
 
   return (
     <section>

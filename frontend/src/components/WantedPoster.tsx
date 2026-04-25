@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, type Variants } from "framer-motion";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { useEffect } from "react";
 import type { AuditEntryDTO } from "@/lib/types";
 
 const posterVariants: Variants = {
@@ -44,6 +45,16 @@ interface WantedPosterProps {
 }
 
 export function WantedPoster({ entry, onClose }: WantedPosterProps) {
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && onClose) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -56,10 +67,11 @@ export function WantedPoster({ entry, onClose }: WantedPosterProps) {
       aria-modal="true"
     >
       <motion.div
-        variants={posterVariants}
-        initial="hidden"
-        animate="slam"
-        exit="exit"
+        variants={reduceMotion ? undefined : posterVariants}
+        initial={reduceMotion ? { opacity: 0 } : "hidden"}
+        animate={reduceMotion ? { opacity: 1 } : "slam"}
+        exit={reduceMotion ? { opacity: 0 } : "exit"}
+        transition={reduceMotion ? { duration: 0.18 } : undefined}
         className="relative aspect-[3/4] w-[340px] cursor-pointer bg-parchment p-5 shadow-[0_30px_60px_rgba(0,0,0,0.55)]"
         style={{ clipPath: TORN_EDGE }}
         onClick={(e) => e.stopPropagation()}
@@ -101,7 +113,10 @@ export function WantedPoster({ entry, onClose }: WantedPosterProps) {
           </div>
         </div>
         <motion.div
-          variants={stampVariants}
+          variants={reduceMotion ? undefined : stampVariants}
+          initial={reduceMotion ? { opacity: 0 } : undefined}
+          animate={reduceMotion ? { opacity: 1 } : undefined}
+          transition={reduceMotion ? { delay: 0.15, duration: 0.2 } : undefined}
           className="pointer-events-none absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap border-[5px] border-wanted-red px-4 py-1.5 font-heading text-[46px] tracking-[0.12em] text-wanted-red"
         >
           DENIED
