@@ -41,11 +41,13 @@ class TelegramApprovalNotifier:
             f"{_esc(explanation)}\n\n"
             f"```json\n{args_snippet}\n```"
         )
+        # callback_data is namespaced "agentsheriff:" so the OpenClaw plugin
+        # (registerInteractiveHandler) routes these taps to the AgentSheriff API.
         keyboard = {
             "inline_keyboard": [[
-                {"text": "✅ Approve", "callback_data": f"approve:{approval.id}"},
-                {"text": "❌ Deny", "callback_data": f"deny:{approval.id}"},
-                {"text": "🔒 Redact", "callback_data": f"redact:{approval.id}"},
+                {"text": "✅ Approve", "callback_data": f"agentsheriff:approve:{approval.id}"},
+                {"text": "❌ Deny", "callback_data": f"agentsheriff:deny:{approval.id}"},
+                {"text": "🔒 Redact", "callback_data": f"agentsheriff:redact:{approval.id}"},
             ]]
         }
         try:
@@ -65,38 +67,25 @@ class TelegramApprovalNotifier:
             logger.exception("telegram_send_failed approval_id=%s", approval.id)
 
     async def edit_resolved(self, approval_id: str, resolution: str) -> None:
-        """Remove inline buttons and reply with the resolution. Idempotent — no-ops if already resolved."""
+        """Delete the approval request message. Idempotent — no-ops if already deleted (e.g. by the OpenClaw plugin on a Telegram-initiated tap)."""
         msg_id = self._msg_ids.pop(approval_id, None)
         if msg_id is None:
             return
-        labels = {
-            "approved": "✅ Approved",
-            "denied": "❌ Denied",
-            "redacted": "🔒 Redacted",
-            "timed_out": "⏱️ Timed out",
-        }
-        label = labels.get(resolution, resolution)
         try:
             async with httpx.AsyncClient(timeout=_SEND_TIMEOUT) as client:
-                # Remove the inline keyboard from the original message
-                await client.post(
-                    f"{self._base}/editMessageReplyMarkup",
+                resp = await client.post(
+                    f"{self._base}/deleteMessage",
                     json={
                         "chat_id": self._chat_id,
                         "message_id": msg_id,
-                        "reply_markup": {"inline_keyboard": []},
                     },
                 )
-                await client.post(
-                    f"{self._base}/sendMessage",
-                    json={
-                        "chat_id": self._chat_id,
-                        "text": f"{label} by operator",
-                        "reply_to_message_id": msg_id,
-                    },
-                )
+                # 400 "message to delete not found" is expected when the plugin
+                # already deleted the message on tap; don't raise on it.
+                if resp.status_code != 200 and resp.status_code != 400:
+                    resp.raise_for_status()
         except Exception:
-            logger.exception("telegram_edit_failed approval_id=%s", approval_id)
+            logger.exception("telegram_delete_failed approval_id=%s", approval_id)
 
     async def poll(
         self,

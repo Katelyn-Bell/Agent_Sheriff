@@ -3,10 +3,11 @@
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createPolicy, publishPolicy } from "@/lib/api";
+import { Pencil, Archive, ScrollText } from "lucide-react";
+import { archivePolicy, createPolicy, publishPolicy } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { useAppStore, type DraftPolicy } from "@/lib/store";
-import type { StaticRuleDTO } from "@/lib/types";
+import type { PolicyVersionDTO, RuleAction, StaticRuleDTO } from "@/lib/types";
 
 export default function TownLawsPage() {
   const draft = useAppStore((s) => s.draftPolicy);
@@ -28,12 +29,19 @@ export default function TownLawsPage() {
         }
       />
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
-        <div>{draft ? <DraftEditor /> : <EmptyState />}</div>
-        <aside className="space-y-4">
+      {draft ? (
+        <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
+          <DraftEditor />
+          <aside>
+            <PublishedPanel compact />
+          </aside>
+        </div>
+      ) : (
+        <div className="space-y-8">
           <PublishedPanel />
-        </aside>
-      </div>
+          <EmptyState />
+        </div>
+      )}
     </section>
   );
 }
@@ -222,30 +230,235 @@ function DraftEditor() {
   );
 }
 
-function PublishedPanel() {
+function PublishedPanel({ compact = false }: { compact?: boolean }) {
   const latestPolicy = useAppStore((s) => s.latestPolicy);
-  return (
-    <div className="border border-brass/40 bg-parchment-deep/40 p-4">
-      <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.22em] text-ink-soft">
-        Currently published
-      </div>
-      {latestPolicy ? (
-        <>
-          <p className="font-heading text-base text-ink">{latestPolicy.name}</p>
-          <p className="mt-1 font-mono text-xs text-ink-soft">
-            v{latestPolicy.version} · {latestPolicy.static_rules.length} rules
-          </p>
-          <p className="mt-3 text-xs text-ink-soft">
-            {latestPolicy.intent_summary}
-          </p>
-        </>
-      ) : (
+  const setDraftPolicy = useAppStore((s) => s.setDraftPolicy);
+
+  const archive = useMutation({
+    mutationFn: (id: string) => archivePolicy(id),
+  });
+
+  if (!latestPolicy) {
+    return (
+      <div className="border border-brass/40 bg-parchment-deep/40 p-5">
+        <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.22em] text-ink-soft">
+          Currently published
+        </div>
         <p className="text-sm text-ink-soft">
           No published version yet. Your first publish becomes v1.
         </p>
+      </div>
+    );
+  }
+
+  const handleEdit = () => {
+    setDraftPolicy({
+      name: latestPolicy.name,
+      intent_summary: latestPolicy.intent_summary,
+      judge_prompt: latestPolicy.judge_prompt,
+      static_rules: latestPolicy.static_rules,
+      notes: [],
+      source: "manual",
+    });
+  };
+
+  const handleArchive = () => {
+    const ok = window.confirm(
+      `Archive "${latestPolicy.name}" v${latestPolicy.version}? It will no longer be active.`,
+    );
+    if (ok) archive.mutate(latestPolicy.id);
+  };
+
+  if (compact) {
+    return (
+      <div className="border border-brass/40 bg-parchment-deep/40 p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
+            Currently published
+          </span>
+          <span className="border border-brass-dark px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-brass-dark">
+            v{latestPolicy.version}
+          </span>
+        </div>
+        <p className="font-heading text-base text-ink">{latestPolicy.name}</p>
+        <p className="mt-1 font-mono text-[10px] text-ink-soft">
+          {latestPolicy.static_rules.length} rules
+        </p>
+        <p className="mt-3 line-clamp-3 text-xs leading-relaxed text-ink-soft">
+          {latestPolicy.intent_summary}
+        </p>
+      </div>
+    );
+  }
+
+  const counts = countRuleActions(latestPolicy.static_rules);
+
+  return (
+    <article className="relative overflow-hidden border-2 border-ink bg-parchment-deep/60 shadow-[0_8px_24px_rgba(43,24,16,0.12)]">
+      <div className="border-b border-brass/40 bg-parchment px-6 py-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
+              <ScrollText className="h-3 w-3" />
+              Currently published
+            </div>
+            <h2 className="mt-1 truncate font-heading text-3xl leading-tight text-ink">
+              {latestPolicy.name}
+            </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-widest">
+              <span className="border border-brass-dark bg-brass-dark px-2 py-0.5 text-parchment">
+                v{latestPolicy.version}
+              </span>
+              <span className="border border-ink/30 px-2 py-0.5 text-ink-soft">
+                {latestPolicy.status}
+              </span>
+              {latestPolicy.published_at && (
+                <span className="text-ink-soft">
+                  · published {formatDate(latestPolicy.published_at)}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={handleEdit}
+              className="inline-flex items-center gap-1.5 border border-ink bg-parchment px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-ink transition hover:bg-brass-light/40"
+            >
+              <Pencil className="h-3 w-3" />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={handleArchive}
+              disabled={archive.isPending}
+              className="inline-flex items-center gap-1.5 border border-wanted-red px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-wanted-red transition hover:bg-wanted-red/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Archive className="h-3 w-3" />
+              {archive.isPending ? "…" : "Archive"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-px bg-brass/30 sm:grid-cols-4">
+        <PolicyStat label="Rules" value={latestPolicy.static_rules.length} />
+        <PolicyStat label="Allow" value={counts.allow} accent="brass" />
+        <PolicyStat label="Approval" value={counts.require_approval} accent="amber" />
+        <PolicyStat label="Deny" value={counts.deny} accent="wanted" />
+      </div>
+
+      <div className="space-y-4 px-6 py-5">
+        <div>
+          <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
+            Intent
+          </div>
+          <p className="text-sm leading-relaxed text-ink">
+            {latestPolicy.intent_summary || (
+              <span className="italic text-ink-soft">No intent summary</span>
+            )}
+          </p>
+        </div>
+
+        {latestPolicy.static_rules.length > 0 && (
+          <details className="group border-t border-brass/30 pt-4">
+            <summary className="flex cursor-pointer items-center justify-between font-mono text-[11px] uppercase tracking-[0.22em] text-ink-soft hover:text-ink">
+              <span>Rules ({latestPolicy.static_rules.length})</span>
+              <span className="transition group-open:rotate-180">▾</span>
+            </summary>
+            <ol className="mt-3 space-y-2">
+              {latestPolicy.static_rules.map((rule, idx) => (
+                <li
+                  key={rule.id}
+                  className="flex items-start gap-3 border border-ink/15 bg-parchment px-3 py-2"
+                >
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-ink-soft">
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate font-heading text-sm text-ink">
+                        {rule.name}
+                      </span>
+                      <span
+                        className={`font-mono text-[10px] uppercase tracking-widest ${actionColor(rule.action)}`}
+                      >
+                        {rule.action}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate font-mono text-[10px] text-ink-soft">
+                      {rule.tool_match.kind}:{" "}
+                      <strong className="text-ink">{rule.tool_match.value}</strong>
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </details>
+        )}
+      </div>
+
+      {archive.isError && (
+        <div className="border-t border-wanted-red/40 bg-wanted-red/10 px-6 py-2 text-xs text-wanted-red">
+          {archive.error instanceof Error
+            ? archive.error.message
+            : "Archive failed"}
+        </div>
       )}
+    </article>
+  );
+}
+
+function PolicyStat({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent?: "wanted" | "amber" | "brass";
+}) {
+  const color =
+    accent === "wanted"
+      ? "text-wanted-red"
+      : accent === "amber"
+        ? "text-approval-amber"
+        : accent === "brass"
+          ? "text-brass-dark"
+          : "text-ink";
+  return (
+    <div className="bg-parchment-deep/60 px-4 py-3">
+      <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft">
+        {label}
+      </div>
+      <div className={`mt-0.5 font-heading text-2xl leading-none ${color}`}>
+        {value}
+      </div>
     </div>
   );
+}
+
+function countRuleActions(rules: PolicyVersionDTO["static_rules"]) {
+  const counts: Record<RuleAction, number> = {
+    allow: 0,
+    deny: 0,
+    require_approval: 0,
+    delegate_to_judge: 0,
+  };
+  for (const r of rules) counts[r.action] += 1;
+  return counts;
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
+  }
 }
 
 function RuleRow({

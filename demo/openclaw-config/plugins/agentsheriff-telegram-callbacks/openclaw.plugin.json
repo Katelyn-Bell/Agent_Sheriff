@@ -1,0 +1,11 @@
+{
+  "id": "agentsheriff-telegram-callbacks",
+  "enabledByDefault": true,
+  "name": "AgentSheriff Telegram Callbacks",
+  "description": "Forward Telegram approval button taps (namespace 'agentsheriff') to the AgentSheriff gateway.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}
