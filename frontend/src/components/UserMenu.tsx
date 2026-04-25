@@ -10,6 +10,7 @@ export function UserMenu() {
   const router = useRouter();
   const user = useAppStore((s) => s.user);
   const setUser = useAppStore((s) => s.setUser);
+  const setAuthVerified = useAppStore((s) => s.setAuthVerified);
   const [signingOut, setSigningOut] = useState(false);
 
   if (!user) return null;
@@ -22,6 +23,7 @@ export function UserMenu() {
     } catch {
       // offline or session already gone — clear local state anyway
     } finally {
+      setAuthVerified(false);
       setUser(null);
       router.push("/");
     }

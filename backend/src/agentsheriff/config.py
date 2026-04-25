@@ -12,10 +12,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str = Field(default="sqlite:///./sheriff.db", alias="DATABASE_URL")
-    frontend_origin: str = Field(default="http://localhost:3000", alias="FRONTEND_ORIGIN")
+    frontend_origins: list[str] = Field(
+        default=["http://localhost:3000", "http://127.0.0.1:3000"],
+        alias="FRONTEND_ORIGINS",
+    )
     approval_timeout_s: int = Field(default=120, alias="APPROVAL_TIMEOUT_S")
     gateway_adapter_secret: str = Field(default="dev-gateway-secret", alias="GATEWAY_ADAPTER_SECRET")
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
+    openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
+    openrouter_model: str = Field(default="anthropic/claude-3.5-sonnet", alias="OPENROUTER_MODEL")
     use_llm_classifier: bool = Field(default=True, alias="USE_LLM_CLASSIFIER")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     policy_path: str | None = Field(default=None, alias="POLICY_PATH")

@@ -13,6 +13,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const user = useAppStore((s) => s.user);
   const setUser = useAppStore((s) => s.setUser);
+  const setAuthVerified = useAppStore((s) => s.setAuthVerified);
 
   // If a persisted user is already in the store on mount, show app
   // immediately (no Checking-badge flash). Otherwise wait for getMe.
@@ -24,6 +25,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     // Dev shortcut: keep the fake user authenticated without hitting
     // the backend. Useful when demoing offline.
     if (user?.id === DEV_USER_ID) {
+      setAuthVerified(true);
       setStatus("authed");
       return;
     }
@@ -34,10 +36,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         const me = await getMe();
         if (cancelled) return;
         setUser(me);
+        setAuthVerified(true);
         setStatus("authed");
       } catch {
         if (cancelled) return;
         // Cookie missing or expired — clear cached user and bounce.
+        setAuthVerified(false);
         setUser(null);
         setStatus("unauthed");
         router.replace("/login");

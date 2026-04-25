@@ -66,7 +66,8 @@ def _post_login_redirect(
     settings: Settings, user: User
 ) -> str:
     target = "/onboard" if not user.onboarded else "/overview"
-    return f"{settings.frontend_origin.rstrip('/')}{target}"
+    origin = settings.frontend_origins[0] if settings.frontend_origins else "http://localhost:3000"
+    return f"{origin.rstrip('/')}{target}"
 
 
 @router.get("/google/start")

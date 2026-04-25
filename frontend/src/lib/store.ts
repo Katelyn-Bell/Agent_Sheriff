@@ -32,6 +32,7 @@ interface StoreState {
   latestPolicy: PolicyVersionDTO | null;
   draftPolicy: DraftPolicy | null;
   user: UserDTO | null;
+  authVerified: boolean;
   connection: ConnectionState;
   lastHeartbeatTs: number | null;
 
@@ -41,6 +42,7 @@ interface StoreState {
   setDraftPolicy: (draft: DraftPolicy | null) => void;
   updateDraftPolicy: (patch: Partial<DraftPolicy>) => void;
   setUser: (user: UserDTO | null) => void;
+  setAuthVerified: (verified: boolean) => void;
 }
 
 export interface Snapshot {
@@ -61,6 +63,7 @@ export const useAppStore = create<StoreState>()(
   latestPolicy: null,
   draftPolicy: null,
   user: null,
+  authVerified: false,
   connection: "connecting",
   lastHeartbeatTs: null,
 
@@ -119,6 +122,7 @@ export const useAppStore = create<StoreState>()(
     })),
 
   setUser: (user) => set({ user }),
+  setAuthVerified: (authVerified) => set({ authVerified }),
     }),
     {
       name: "agentsheriff-auth",
