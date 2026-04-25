@@ -27,6 +27,28 @@ class EvalStore:
         row = self.session.get(EvalRun, eval_id)
         return self.run_to_dto(row) if row else None
 
+    def mark_failed(self, eval_id: str, reason: str) -> EvalRunDTO | None:
+        row = self.session.get(EvalRun, eval_id)
+        if row is None:
+            return None
+        row.status = EvalStatus.failed.value
+        row.completed_at = datetime.now(timezone.utc)
+        row.errored += 1
+        self.session.add(EvalResult(
+            id=f"er_{uuid4().hex[:12]}",
+            eval_run_id=row.id,
+            audit_id="eval_setup",
+            original_decision=Decision.deny.value,
+            replayed_decision=Decision.deny.value,
+            matched_rule_id=None,
+            judge_used=False,
+            replay_reason=reason,
+            agreement=False,
+        ))
+        self.session.commit()
+        self.session.refresh(row)
+        return self.run_to_dto(row)
+
     def list_results(self, eval_id: str) -> list[EvalResultDTO]:
         rows = self.session.scalars(select(EvalResult).where(EvalResult.eval_run_id == eval_id)).all()
         return [self.result_to_dto(row) for row in rows]
@@ -202,4 +224,10 @@ def run_eval_task(
     on_progress: Callable[[EvalRunDTO], None] | None = None,
 ) -> None:
     with session_factory() as session:
-        EvalStore(session).run_existing(eval_id, filters, on_progress=on_progress)
+        store = EvalStore(session)
+        try:
+            store.run_existing(eval_id, filters, on_progress=on_progress)
+        except Exception as exc:  # pragma: no cover - defensive background task isolation
+            failed = store.mark_failed(eval_id, f"Eval failed: {exc}")
+            if failed is not None and on_progress is not None:
+                on_progress(failed)
