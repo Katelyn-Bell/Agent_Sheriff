@@ -219,7 +219,7 @@ export default function NewPolicyPage() {
             </p>
           </SidePanel>
 
-          <SidePanel title="Examples to crib from">
+          <SidePanel title="Examples">
             <ul className="space-y-3 text-sm text-ink-soft">
               {EXAMPLE_INTENTS.map((ex, i) => (
                 <li key={i} className="border-l-2 border-brass/40 pl-3">

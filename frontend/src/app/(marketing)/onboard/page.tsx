@@ -506,7 +506,7 @@ function NavButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className="font-mono text-[11px] uppercase tracking-widest text-ink-soft underline-offset-4 transition hover:text-ink hover:underline disabled:opacity-50"
+      className="border border-ink/40 bg-parchment px-6 py-2.5 text-sm font-semibold text-ink-soft transition hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
     >
       {children}
     </button>

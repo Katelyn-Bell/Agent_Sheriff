@@ -40,17 +40,12 @@ export function MarketingNav() {
       </Link>
 
       {user ? (
-        <div className="flex items-center gap-4">
-          <span className="hidden font-mono text-[11px] uppercase tracking-widest text-ink-soft sm:inline">
-            {user.email}
-          </span>
-          <Link
-            href="/overview"
-            className="border border-ink bg-brass-dark px-4 py-2 text-sm font-semibold text-parchment transition hover:bg-brass"
-          >
-            Open dashboard →
-          </Link>
-        </div>
+        <Link
+          href="/overview"
+          className="border border-ink bg-brass-dark px-4 py-2 text-sm font-semibold text-parchment transition hover:bg-brass"
+        >
+          Open dashboard →
+        </Link>
       ) : (
         <Link
           href="/login"
