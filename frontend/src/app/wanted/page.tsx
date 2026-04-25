@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { PageHeader } from "@/components/PageHeader";
 import { WantedPoster } from "@/components/WantedPoster";
@@ -8,8 +8,10 @@ import { useAppStore } from "@/lib/store";
 import type { AuditEntryDTO } from "@/lib/types";
 
 export default function WantedBoardPage() {
-  const denies = useAppStore((s) =>
-    s.audit.filter((e) => e.decision === "deny").slice(0, 12),
+  const audit = useAppStore((s) => s.audit);
+  const denies = useMemo(
+    () => audit.filter((e) => e.decision === "deny").slice(0, 12),
+    [audit],
   );
   const [showing, setShowing] = useState<AuditEntryDTO | null>(null);
 
