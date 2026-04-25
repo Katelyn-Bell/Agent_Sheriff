@@ -75,9 +75,12 @@ def generate_skill_laws(
         return _fallback_laws(skill, user_intent, guardrails, vocabulary)
 
     try:
+        # Budget ~120 tokens of output per command in the vocabulary plus
+        # headroom for the intent_summary / judge_prompt / notes envelope.
+        # 1500 was enough for ~25 rules; a 47-command skill needs ~5x that.
         response = client.messages.create(
             model=model_id,
-            max_tokens=1500,
+            max_tokens=max(1500, 200 + 120 * len(skill.commands)),
             temperature=0,
             system=[
                 {
@@ -389,6 +392,11 @@ def _fallback_laws(
     )
     rules.append(fallback_rule)
 
+    # The wizard expects one row per command in the skill. Run the same
+    # coverage pass the LLM-success path uses so the deterministic fallback
+    # also returns a complete table.
+    rules, coverage_notes = _ensure_command_coverage(rules, skill)
+
     intent_summary = _default_summary(skill, user_intent)
     judge_prompt = _safe_judge_prompt(skill, user_intent, guardrails, None)
     notes = [
@@ -396,6 +404,7 @@ def _fallback_laws(
         f"Risky flags blocked or escalated: {', '.join(risky_flags) if risky_flags else 'none'}.",
         "Edit these laws in the wizard before publishing.",
     ]
+    notes.extend(coverage_notes)
     return PolicyGenerationResult(
         intent_summary=intent_summary,
         judge_prompt=judge_prompt,
