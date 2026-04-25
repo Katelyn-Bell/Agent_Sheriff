@@ -160,7 +160,8 @@ class SkillDTO(BaseModel):
 
 
 class SkillLawGenerationRequest(BaseModel):
-    user_intent: str
+    user_intent: str = Field(max_length=2000)
+    guardrails: str | None = Field(default=None, max_length=2000)
 
 
 class AgentDTO(BaseModel):

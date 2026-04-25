@@ -1,6 +1,5 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -25,9 +24,7 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
-import { generatePolicy } from "@/lib/api";
 import { NAV_ROUTES } from "@/lib/nav";
-import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 interface StepDef {
@@ -243,7 +240,6 @@ const initialAnswers: Answers = {
 
 export default function OnboardPage() {
   const router = useRouter();
-  const setDraftPolicy = useAppStore((s) => s.setDraftPolicy);
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>(initialAnswers);
 
@@ -265,69 +261,31 @@ export default function OnboardPage() {
             .map((t) => TOOLS.find((x) => x.value === t)?.label ?? t)
             .join(", ")
         : "various tools";
+    const trimmed = answers.notes.trim();
+    const trailing = trimmed ? ` Operator notes: ${trimmed}.` : "";
+    return `This agent is a ${useCaseLabel}. It uses ${toolLabels}. Risk posture: ${answers.risk}.${trailing}`;
+  };
+
+  const composeGuardrails = () => {
     const allConcerns = [
       ...answers.concerns,
       ...(answers.customConcern.trim()
         ? [answers.customConcern.trim()]
         : []),
     ];
-    const concernText =
-      allConcerns.length > 0 ? allConcerns.join("; ") : "general safety";
-    const trimmed = answers.notes.trim();
-    const trailing = trimmed ? ` Operator notes: ${trimmed}.` : "";
-    return `This agent is a ${useCaseLabel}. It uses ${toolLabels}. Primary concerns: ${concernText}. Risk posture: ${answers.risk}.${trailing}`;
+    return allConcerns.join("; ");
   };
 
-  const composeManifest = () =>
-    answers.tools.flatMap(
-      (t) => TOOLS.find((x) => x.value === t)?.manifest ?? [],
-    );
-
-  const composeDomainHint = (): string | undefined => {
-    switch (answers.useCase) {
-      case "support":
-      case "email":
-        return "support";
-      case "coding":
-        return "engineering";
-      case "research":
-        return "research";
-      default:
-        return undefined;
-    }
-  };
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      generatePolicy({
-        name: answers.name.trim(),
-        user_intent: composeIntent(),
-        tool_manifest: composeManifest(),
-        domain_hint: composeDomainHint(),
-      }),
-    onSuccess: (result) => {
-      setDraftPolicy({
-        name: answers.name.trim(),
-        intent_summary: result.intent_summary,
-        judge_prompt: result.judge_prompt,
-        static_rules: result.static_rules,
-        notes: result.notes,
-        source: "generated",
-      });
-      router.push("/laws");
-    },
-  });
-
-  const createEmptyDraft = () => {
-    setDraftPolicy({
-      name: answers.name.trim() || "Untitled policy",
-      intent_summary: composeIntent(),
-      judge_prompt: "",
-      static_rules: [],
-      notes: [],
-      source: "manual",
-    });
-    router.push("/laws");
+  const continueToWizard = () => {
+    const params = new URLSearchParams();
+    const intent = composeIntent();
+    const rails = composeGuardrails();
+    const name = answers.name.trim();
+    if (intent) params.set("intent", intent);
+    if (rails) params.set("guardrails", rails);
+    if (name) params.set("name", name);
+    const query = params.toString();
+    router.push(query ? `/new-policy?${query}` : "/new-policy");
   };
 
   return (
@@ -388,15 +346,7 @@ export default function OnboardPage() {
             value={answers.name}
             onChange={(v) => update("name", v)}
             onBack={goBack}
-            isPending={mutation.isPending}
-            isError={mutation.isError}
-            errorMessage={
-              mutation.error instanceof Error
-                ? mutation.error.message
-                : undefined
-            }
-            onSubmit={() => mutation.mutate()}
-            onEmptyDraft={createEmptyDraft}
+            onSubmit={continueToWizard}
           />
         )}
       </div>
@@ -900,22 +850,14 @@ function NameStep({
   value,
   onChange,
   onBack,
-  isPending,
-  isError,
-  errorMessage,
   onSubmit,
-  onEmptyDraft,
 }: {
   value: string;
   onChange: (v: string) => void;
   onBack: () => void;
-  isPending: boolean;
-  isError: boolean;
-  errorMessage?: string;
   onSubmit: () => void;
-  onEmptyDraft: () => void;
 }) {
-  const canSubmit = value.trim().length > 0 && !isPending;
+  const canSubmit = value.trim().length > 0;
   return (
     <StepShell
       title="Save this policy as"
@@ -923,16 +865,14 @@ function NameStep({
       required
       footer={
         <>
-          <NavButton onClick={onBack} disabled={isPending}>
-            ← Back
-          </NavButton>
+          <NavButton onClick={onBack}>← Back</NavButton>
           <NavButton
             variant="primary"
             type="button"
             disabled={!canSubmit}
             onClick={onSubmit}
           >
-            {isPending ? "Drafting…" : "Draft my policy →"}
+            Continue to wizard →
           </NavButton>
         </>
       }
@@ -945,23 +885,10 @@ function NameStep({
         className="w-full border border-ink/40 bg-parchment-deep/40 px-4 py-3 text-xl font-heading text-ink transition focus:border-ink focus:outline-none focus:ring-2 focus:ring-brass/30"
         maxLength={80}
       />
-      {isError && (
-        <div className="mt-6 border-l-4 border-wanted-red bg-parchment-deep/60 p-4">
-          <p className="font-heading text-base text-wanted-red">
-            Could not reach the gateway
-          </p>
-          {errorMessage && (
-            <p className="mt-1 text-sm text-ink-soft">{errorMessage}</p>
-          )}
-          <button
-            type="button"
-            onClick={onEmptyDraft}
-            className="mt-3 text-sm text-wanted-red underline underline-offset-2 hover:opacity-80"
-          >
-            Start an empty draft instead →
-          </button>
-        </div>
-      )}
+      <p className="mt-3 text-xs text-ink-soft">
+        Your answers carry over to the policy wizard, where you'll pick the
+        skill and review draft laws before publishing.
+      </p>
     </StepShell>
   );
 }

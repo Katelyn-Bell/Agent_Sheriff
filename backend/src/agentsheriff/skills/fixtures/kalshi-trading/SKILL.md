@@ -63,7 +63,7 @@ The CLI exposes several flags that bypass safety rails. Treat any command contai
 - `--yes` — skips the interactive confirmation prompt.
 - `--force` — overrides safety checks (e.g. price band warnings).
 
-## Common subcommands
+## Command Reference
 
 | Subcommand | Purpose |
 | --- | --- |

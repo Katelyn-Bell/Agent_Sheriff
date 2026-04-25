@@ -79,6 +79,10 @@ class ParsedSkill:
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 _FENCED_BLOCK_RE = re.compile(r"```[^\n]*\n(.*?)```", re.DOTALL)
 _INLINE_CODE_RE = re.compile(r"`([^`\n]+)`")
+_COMMAND_REFERENCE_RE = re.compile(
+    r"^##\s+command\s+reference\s*$(.*?)(?=^##\s|\Z)",
+    re.IGNORECASE | re.MULTILINE | re.DOTALL,
+)
 
 
 def parse_skill_md(
@@ -87,7 +91,19 @@ def parse_skill_md(
     default_id: str | None = None,
     default_name: str | None = None,
 ) -> ParsedSkill:
-    """Parse a SKILL.md document and return its structured command vocabulary."""
+    """Parse a SKILL.md document and return its structured command vocabulary.
+
+    Precedence for command extraction:
+    1. If the body contains a ``## Command Reference`` section (case-insensitive
+       H2), parse the markdown table that follows. Each row's first cell is
+       treated as the subcommand (or full invocation suffix if it contains
+       flags/args). Surrounding backticks are stripped.
+    2. Otherwise, fall back to scanning every fenced code block / inline code
+       span for lines that begin with ``base_command``.
+
+    The fallback is also used when the ``## Command Reference`` section yields
+    zero commands (e.g. malformed table).
+    """
 
     metadata, body = _split_frontmatter(text)
     base_command = _coerce_str(metadata.get("base_command")) or _infer_base_command(body)
@@ -98,7 +114,9 @@ def parse_skill_md(
     skill_name = _coerce_str(metadata.get("name")) or default_name or skill_id.replace("-", " ").title()
     description = _coerce_str(metadata.get("description"))
 
-    invocations = list(_iter_invocations(body, base_command))
+    invocations = list(_iter_command_reference_invocations(body, base_command))
+    if not invocations:
+        invocations = list(_iter_invocations(body, base_command))
     commands = _group_commands(invocations)
 
     return ParsedSkill(
@@ -133,6 +151,49 @@ def _infer_base_command(body: str) -> str | None:
     if not counts:
         return None
     return max(counts.items(), key=lambda kv: kv[1])[0]
+
+
+def _iter_command_reference_invocations(body: str, base_command: str) -> Iterable[str]:
+    r"""Yield synthesized invocations from the ``## Command Reference`` table.
+
+    Each table row's first cell becomes a subcommand suffix. Surrounding
+    backticks are stripped, so cells like ``\`auth login --foo\``` flow through
+    with their flags intact and are split downstream by ``_group_commands``.
+    """
+
+    match = _COMMAND_REFERENCE_RE.search(body)
+    if not match:
+        return
+    section = match.group(1)
+
+    seen: set[str] = set()
+    past_separator = False
+    for raw_line in section.splitlines():
+        line = raw_line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if not cells:
+            continue
+        first = cells[0]
+        # The markdown table separator (e.g. "| --- | --- |") marks the end of
+        # the header row; everything before it is column labels we should skip.
+        if first and set(first) <= {"-", ":", " "}:
+            past_separator = True
+            continue
+        if not past_separator:
+            continue
+        if not first:
+            continue
+        # Strip surrounding backticks; keep inner content (which may include flags).
+        suffix = first.strip("`").strip()
+        if not suffix:
+            continue
+        invocation = f"{base_command} {suffix}"
+        if invocation in seen:
+            continue
+        seen.add(invocation)
+        yield invocation
 
 
 def _iter_invocations(body: str, base_command: str) -> Iterable[str]:
