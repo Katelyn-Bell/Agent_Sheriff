@@ -32,7 +32,8 @@ def compare_replayed_decision(audit_entry: Any, replay_outcome: Any) -> EvalComp
         return EvalComparisonResult(True, replay_reason or "Replay matched the original decision.")
     if original == replayed:
         return EvalComparisonResult(False, replay_reason or "Decision matched but rationale changed.", DisagreementCategory.reason_changed)
-    if "approval" in {str(original), str(replayed)}:
+    normalized_decisions = {_normalize(original), _normalize(replayed)}
+    if any("approval" in decision for decision in normalized_decisions):
         return EvalComparisonResult(False, replay_reason or "Replay changed approval handling.", DisagreementCategory.approval_vs_direct)
     if _rank(replayed) > _rank(original):
         return EvalComparisonResult(False, replay_reason or "Replay is more permissive than the original.", DisagreementCategory.more_permissive)
@@ -46,5 +47,8 @@ def _get(value: Any, key: str) -> Any:
 
 
 def _rank(value: Any) -> int:
-    normalized = getattr(value, "value", value)
-    return {"deny": 0, "approval_required": 1, "require_approval": 1, "allow": 2}.get(str(normalized), -1)
+    return {"deny": 0, "approval_required": 1, "require_approval": 1, "allow": 2}.get(_normalize(value), -1)
+
+
+def _normalize(value: Any) -> str:
+    return str(getattr(value, "value", value))
