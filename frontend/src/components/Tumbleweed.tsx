@@ -2,38 +2,54 @@
 
 import { motion } from "framer-motion";
 
-const SHARED_REPEAT = { repeat: Infinity, repeatDelay: 4 } as const;
-const SIZE = 80;
+interface TumbleweedProps {
+  /** Pixel size of the rendered image. Default 120. */
+  size?: number;
+  /** Direction of travel. Default "right" (left-to-right). */
+  direction?: "left" | "right";
+  /** Total duration of one trip across, in seconds. Default 12. */
+  duration?: number;
+  /** Pause between trips, in seconds. Default 5. */
+  repeatDelay?: number;
+}
 
-export function Tumbleweed() {
+export function Tumbleweed({
+  size = 120,
+  direction = "right",
+  duration = 12,
+  repeatDelay = 5,
+}: TumbleweedProps) {
+  const repeat = { repeat: Infinity, repeatDelay } as const;
+  const [startX, endX] =
+    direction === "right" ? ["-15vw", "115vw"] : ["115vw", "-15vw"];
+  const totalRotation = direction === "right" ? 1440 : -1440;
+
   return (
     // Container straddles the section border so the tumbleweed sits ON
-    // the line (center of the image aligned with the line, not below it).
-    // overflow-x-clip lets it slide off-screen horizontally; vertical is
-    // visible so bounces extending up don't get clipped.
+    // the line. overflow-x-clip keeps it offscreen when not in frame;
+    // y is visible so the bounces extending up don't get clipped.
     <div
       className="pointer-events-none absolute inset-x-0 z-0 overflow-x-clip"
-      style={{ top: -SIZE / 2, height: SIZE }}
+      style={{ top: -size / 2, height: size }}
     >
       <motion.img
         src="/tumbleweed.png"
         alt=""
         aria-hidden
         className="absolute left-0 top-0 select-none drop-shadow-[0_4px_8px_rgba(43,24,16,0.35)]"
-        style={{ height: SIZE, width: "auto" }}
-        initial={{ x: "-12vw", y: 0, rotate: 0 }}
+        style={{ height: size, width: "auto" }}
+        initial={{ x: startX, y: 0, rotate: 0 }}
         animate={{
-          x: "112vw",
-          // Decaying-then-rebounding hops, with one big mid-air gust.
-          // Negative = up. easeOut on the way up, easeIn on the way down.
-          y: [0, -22, 0, -14, 0, -32, 0, -10, 0, -18, 0],
-          // Continuous spin tied to forward motion (~4 full rotations).
-          rotate: 1440,
+          x: endX,
+          // 4 decaying bounces with one mid-air gust. easeOut on the way
+          // up, easeIn on the way down → real parabolic arcs.
+          y: [0, -28, 0, -18, 0, -38, 0, -12, 0, -22, 0],
+          rotate: totalRotation,
         }}
         transition={{
-          x: { duration: 11, ease: "linear", ...SHARED_REPEAT },
+          x: { duration, ease: "linear", ...repeat },
           y: {
-            duration: 11,
+            duration,
             times: [
               0, 0.06, 0.12, 0.2, 0.28, 0.4, 0.52, 0.6, 0.68, 0.78, 0.86,
             ],
@@ -49,9 +65,9 @@ export function Tumbleweed() {
               "easeOut",
               "easeIn",
             ],
-            ...SHARED_REPEAT,
+            ...repeat,
           },
-          rotate: { duration: 11, ease: "linear", ...SHARED_REPEAT },
+          rotate: { duration, ease: "linear", ...repeat },
         }}
       />
     </div>
