@@ -17,6 +17,7 @@ from agentsheriff.api.errors import install_error_handlers
 from agentsheriff.api.evals import router as evals_router
 from agentsheriff.api.health import router as health_router
 from agentsheriff.api.policies import router as policies_router
+from agentsheriff.api.skills import router as skills_router
 from agentsheriff.api.tool_calls import router as tool_calls_router
 from agentsheriff.api.tools import router as tools_router
 from agentsheriff.config import Settings, get_settings
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(tool_calls_router)
     app.include_router(tools_router)
+    app.include_router(skills_router)
     app.include_router(policies_router)
     app.include_router(audit_router)
     app.include_router(approvals_router)

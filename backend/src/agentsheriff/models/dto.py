@@ -142,6 +142,27 @@ class PolicyGenerationResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class SkillCommandDTO(BaseModel):
+    name: str
+    flags: list[str] = Field(default_factory=list)
+    risky_flags: list[str] = Field(default_factory=list)
+    description: str | None = None
+    example: str | None = None
+
+
+class SkillDTO(BaseModel):
+    id: str
+    name: str
+    description: str | None = None
+    base_command: str
+    commands: list[SkillCommandDTO] = Field(default_factory=list)
+    risky_flags: list[str] = Field(default_factory=list)
+
+
+class SkillLawGenerationRequest(BaseModel):
+    user_intent: str
+
+
 class AgentDTO(BaseModel):
     id: str
     label: str | None = None
