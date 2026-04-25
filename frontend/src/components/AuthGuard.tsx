@@ -7,8 +7,6 @@ import { useAppStore } from "@/lib/store";
 
 type GuardStatus = "checking" | "authed" | "unauthed";
 
-const DEV_USER_ID = "dev-user";
-
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const user = useAppStore((s) => s.user);
@@ -21,13 +19,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    // Dev shortcut: keep the fake user authenticated without hitting
-    // the backend. Useful when demoing offline.
-    if (user?.id === DEV_USER_ID) {
-      setStatus("authed");
-      return;
-    }
-
     let cancelled = false;
     (async () => {
       try {
@@ -46,7 +37,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, setUser, router]);
+  }, [setUser, router]);
 
   if (status === "checking") {
     return (
