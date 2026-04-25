@@ -156,6 +156,16 @@ export const releaseAgent = (id: string) =>
 export const revokeAgent = (id: string) =>
   apiFetch<AgentStateDTO>(`/v1/agents/${id}/revoke`, { method: "POST" });
 
+// Demo (scenario trigger — not in integration-and-handoffs.md endpoint freeze;
+// backend needs to implement POST /v1/demo/run for demo-launcher buttons).
+export type DemoScenario = "good" | "injection" | "approval";
+
+export const runDemoScenario = (scenario: DemoScenario) =>
+  apiFetch<{ status: string; task_id?: string }>("/v1/demo/run", {
+    method: "POST",
+    body: { scenario },
+  });
+
 // Health
 export const getHealth = () => apiFetch<HealthResponse>("/health");
 
