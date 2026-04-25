@@ -64,7 +64,7 @@ class ApprovalQueue:
         self.session.refresh(row)
         return self.to_dto(row)
 
-    def expire_pending(self) -> None:
+    def expire_pending(self) -> list[ApprovalDTO]:
         now = datetime.now(timezone.utc)
         rows = self.session.scalars(
             select(Approval).where(Approval.state == ApprovalState.pending.value, Approval.expires_at <= now)
@@ -73,6 +73,9 @@ class ApprovalQueue:
             row.state = ApprovalState.timed_out.value
         if rows:
             self.session.commit()
+            for row in rows:
+                self.session.refresh(row)
+        return [self.to_dto(row) for row in rows]
 
     @staticmethod
     def to_dto(row: Approval) -> ApprovalDTO:

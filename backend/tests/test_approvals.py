@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -8,7 +10,7 @@ from agentsheriff.approvals.service import ApprovalService
 from agentsheriff.audit.store import AuditStore
 from agentsheriff.config import Settings
 from agentsheriff.models.dto import ApprovalState, Decision, ToolCallRequest
-from agentsheriff.models.orm import Base
+from agentsheriff.models.orm import Approval, Base
 
 
 def _session():
@@ -90,3 +92,38 @@ def test_redacted_request_scrubs_sensitive_args_before_execution() -> None:
     assert audit.decision == Decision.allow
     assert audit.args == resolved.args
     assert audit.execution_summary == {"status": "stubbed", "args": resolved.args}
+
+
+def test_expired_approval_updates_audit_as_denied() -> None:
+    session = _session()
+    request = ToolCallRequest(agent_id="a1", tool="gmail.send_email", args={"to": "team@example.com"}, context={})
+    approval = ApprovalQueue(session).create_pending(
+        request=request,
+        reason="Needs review",
+        policy_version_id="pv_1",
+        timeout_s=120,
+    )
+    row = session.get(Approval, approval.id)
+    assert row is not None
+    row.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+    session.commit()
+    AuditStore(session).record(
+        request=request,
+        decision=Decision.approval_required,
+        risk_score=60,
+        reason="Needs review",
+        matched_rule_id="approval_rule",
+        judge_used=False,
+        judge_rationale=None,
+        policy_version_id="pv_1",
+        heuristic_summary={"risk_score": 60, "signals": []},
+        approval_id=approval.id,
+    )
+
+    expired = ApprovalService(session, Settings(GATEWAY_ADAPTER_SECRET="test")).expire_pending()
+    audit = AuditStore(session).list_entries()[0]
+    session.close()
+
+    assert expired[0].state == ApprovalState.timed_out
+    assert audit.decision == Decision.deny
+    assert audit.execution_summary == {"status": "not_executed", "approval_state": "timed_out"}

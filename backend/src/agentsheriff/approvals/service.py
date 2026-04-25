@@ -21,7 +21,23 @@ class ApprovalService:
         self.queue = ApprovalQueue(session)
         self.audit = AuditStore(session)
 
+    def list(self, state: ApprovalState | None = ApprovalState.pending) -> list[ApprovalDTO]:
+        self.expire_pending()
+        return self.queue.list(state)
+
+    def expire_pending(self) -> list[ApprovalDTO]:
+        expired = self.queue.expire_pending()
+        for approval in expired:
+            self.audit.apply_approval_resolution(
+                approval_id=approval.id,
+                decision=Decision.deny,
+                reason=f"Approval {approval.id} timed out.",
+                execution_summary={"status": "not_executed", "approval_state": approval.state.value},
+            )
+        return expired
+
     def resolve(self, approval_id: str, action: str) -> ApprovalDTO:
+        self.expire_pending()
         approval = self.queue.resolve(approval_id, action)
         final_args = approval.args
         execution_summary: dict[str, Any] | None = None

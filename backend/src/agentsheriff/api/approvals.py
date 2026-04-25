@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from agentsheriff.api.db import get_session
-from agentsheriff.approvals.queue import ApprovalQueue
 from agentsheriff.approvals.service import ApprovalService
 from agentsheriff.models.dto import ApprovalDTO, ApprovalResolveRequest, ApprovalState
 from agentsheriff.streams import hub
@@ -14,10 +13,11 @@ router = APIRouter(prefix="/v1/approvals", tags=["approvals"])
 
 @router.get("", response_model=list[ApprovalDTO])
 def list_approvals(
+    app_request: Request,
     state: ApprovalState | None = ApprovalState.pending,
     session: Session = Depends(get_session),
 ) -> list[ApprovalDTO]:
-    return ApprovalQueue(session).list(state)
+    return ApprovalService(session, app_request.app.state.settings).list(state)
 
 
 @router.post("/{approval_id}", response_model=ApprovalDTO)
