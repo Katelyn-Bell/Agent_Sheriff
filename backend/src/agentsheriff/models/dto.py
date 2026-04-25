@@ -90,6 +90,7 @@ class StaticRuleDTO(BaseModel):
     arg_predicates: list[ArgPredicateDTO] = Field(default_factory=list)
     action: RuleAction
     severity_floor: int | None = Field(default=None, ge=0, le=100)
+    jail_on_deny: bool = False
     stop_on_match: bool = True
     reason: str
     user_explanation: str | None = None
@@ -134,6 +135,14 @@ class PolicyGenerationResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class AgentDTO(BaseModel):
+    id: str
+    label: str | None = None
+    state: str
+    requests_today: int = 0
+    blocked_today: int = 0
+
+
 class ApprovalDTO(BaseModel):
     id: str
     state: ApprovalState
@@ -142,6 +151,7 @@ class ApprovalDTO(BaseModel):
     tool: str
     args: dict[str, Any]
     reason: str
+    user_explanation: str | None = None
     created_at: str
     expires_at: str
     policy_version_id: str

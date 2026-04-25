@@ -1,0 +1,67 @@
+name: Default Policy
+intent_summary: >
+  General-purpose safety policy. Blocks obvious prompt-injection attempts,
+  requires human approval before sending emails with sensitive attachments to
+  external recipients, and delegates ambiguous calls to the judge.
+judge_prompt: >
+  You are a security-conscious AI policy judge. Assess whether the tool call
+  appears to exfiltrate data, execute destructive actions, or violate
+  reasonable data-handling norms. Be conservative: approve only when the
+  intent is clearly legitimate.
+
+rules:
+  - id: prompt-injection
+    name: Block prompt injection attempts
+    tool_match:
+      kind: namespace
+      value: ""
+    arg_predicates: []
+    action: deny
+    severity_floor: 85
+    jail_on_deny: true
+    reason: "Prompt injection detected in request context."
+    user_explanation: "This request contained instructions attempting to override safety controls."
+
+  - id: approval-on-attachment
+    name: Require approval for emails with sensitive attachments
+    tool_match:
+      kind: exact
+      value: gmail.send_email
+    arg_predicates:
+      - path: attachments
+        operator: exists
+        value: true
+    action: require_approval
+    reason: "Email with attachment requires operator sign-off."
+    user_explanation: "Emails with attachments need human approval before sending."
+
+  - id: gmail-external-needs-approval
+    name: Require approval for external email recipients
+    tool_match:
+      kind: exact
+      value: gmail.send_email
+    arg_predicates: []
+    action: require_approval
+    reason: "Outbound email to external recipient requires approval."
+    user_explanation: "Sending email to external recipients needs human review."
+
+  - id: destructive-shell-deny
+    name: Block destructive shell commands
+    tool_match:
+      kind: namespace
+      value: shell
+    arg_predicates: []
+    action: deny
+    severity_floor: 90
+    jail_on_deny: true
+    reason: "Destructive shell pattern detected."
+    user_explanation: "This shell command was identified as potentially destructive and has been blocked."
+
+  - id: delegate-judge
+    name: Delegate remaining calls to the judge
+    tool_match:
+      kind: namespace
+      value: ""
+    arg_predicates: []
+    action: delegate_to_judge
+    reason: "No static rule matched; delegated to judge."

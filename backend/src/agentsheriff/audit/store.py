@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from agentsheriff.models.dto import AuditEntryDTO, Decision, ToolCallRequest
@@ -78,6 +78,34 @@ class AuditStore:
             statement = statement.where(AuditEntry.ts <= _parse_iso(until))
         statement = statement.limit(limit)
         return [self.to_dto(row) for row in self.session.scalars(statement).all()]
+
+    def get_by_id(self, audit_id: str) -> AuditEntryDTO | None:
+        row = self.session.get(AuditEntry, audit_id)
+        if row is None:
+            return None
+        self.session.refresh(row)
+        return self.to_dto(row)
+
+    def today_counters_for(self, agent_ids: list[str]) -> dict[str, dict[str, int]]:
+        midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        rows = self.session.execute(
+            select(
+                AuditEntry.agent_id,
+                func.count().label("requests_today"),
+                func.sum(
+                    func.cast(AuditEntry.decision == Decision.deny.value, int)
+                ).label("blocked_today"),
+            )
+            .where(AuditEntry.agent_id.in_(agent_ids), AuditEntry.ts >= midnight)
+            .group_by(AuditEntry.agent_id)
+        ).all()
+        result: dict[str, dict[str, int]] = {aid: {"requests_today": 0, "blocked_today": 0} for aid in agent_ids}
+        for row in rows:
+            result[row.agent_id] = {
+                "requests_today": row.requests_today or 0,
+                "blocked_today": int(row.blocked_today or 0),
+            }
+        return result
 
     def apply_approval_resolution(
         self,

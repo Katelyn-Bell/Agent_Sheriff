@@ -47,6 +47,6 @@ async def stream(websocket: WebSocket) -> None:
     try:
         while True:
             await websocket.send_json({"type": "heartbeat", "ts": int(time.time())})
-            await asyncio.sleep(15)
+            await asyncio.sleep(5)
     except WebSocketDisconnect:
         hub.disconnect(websocket)

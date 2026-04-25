@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -45,12 +47,12 @@ def test_gateway_allows_via_static_rule() -> None:
         )],
     )).id)
 
-    response = handle_tool_call(
+    response = asyncio.run(handle_tool_call(
         ToolCallRequest(agent_id="a1", tool="calendar.create_event", args={"title": "Sync"}, context={}),
         policy_store=policy_store,
         audit_store=audit_store,
         settings=_settings(),
-    )
+    ))
     session.close()
 
     assert response.decision == Decision.allow
@@ -73,12 +75,12 @@ def test_gateway_denies_via_static_rule() -> None:
         )],
     )).id)
 
-    response = handle_tool_call(
+    response = asyncio.run(handle_tool_call(
         ToolCallRequest(agent_id="a1", tool="github.push_branch", args={"force": True}, context={}),
         policy_store=policy_store,
         audit_store=audit_store,
         settings=_settings(),
-    )
+    ))
     session.close()
 
     assert response.decision == Decision.deny
@@ -86,16 +88,45 @@ def test_gateway_denies_via_static_rule() -> None:
     assert response.judge_used is False
 
 
+def test_gateway_jail_on_deny() -> None:
+    session, policy_store, audit_store = _stores()
+    agent_store = AgentStore(session)
+    policy_store.publish(policy_store.create_draft(PolicyCreateRequest(
+        name="test",
+        static_rules=[StaticRuleDTO(
+            id="deny_and_jail",
+            name="Deny and jail",
+            tool_match=ToolMatchDTO(kind="exact", value="shell.run"),
+            action=RuleAction.deny,
+            jail_on_deny=True,
+            reason="Destructive shell blocked.",
+        )],
+    )).id)
+
+    asyncio.run(handle_tool_call(
+        ToolCallRequest(agent_id="agent_bad", tool="shell.run", args={"command": "rm -rf /"}, context={}),
+        policy_store=policy_store,
+        audit_store=audit_store,
+        agent_store=agent_store,
+        settings=_settings(),
+    ))
+    agents = agent_store.list()
+    session.close()
+
+    assert agents[0].id == "agent_bad"
+    assert agents[0].state == "jailed"
+
+
 def test_gateway_delegates_unresolved_call_to_judge() -> None:
     session, policy_store, audit_store = _stores()
     policy_store.publish(policy_store.create_draft(PolicyCreateRequest(name="test")).id)
 
-    response = handle_tool_call(
+    response = asyncio.run(handle_tool_call(
         ToolCallRequest(agent_id="a1", tool="gmail.send_email", args={"to": "team@example.com"}, context={}),
         policy_store=policy_store,
         audit_store=audit_store,
         settings=_settings(),
-    )
+    ))
     session.close()
 
     assert response.decision == Decision.allow
@@ -105,65 +136,78 @@ def test_gateway_delegates_unresolved_call_to_judge() -> None:
 
 def test_gateway_denies_unknown_tool() -> None:
     session, policy_store, audit_store = _stores()
-    response = handle_tool_call(
+    response = asyncio.run(handle_tool_call(
         ToolCallRequest(agent_id="a1", tool="unknown.tool", args={}, context={}),
         policy_store=policy_store,
         audit_store=audit_store,
         settings=_settings(),
-    )
+    ))
     session.close()
 
     assert response.decision == Decision.deny
     assert response.policy_version_id == "pv_unvalidated"
 
 
-def test_gateway_creates_pending_approval_from_static_rule() -> None:
+def test_gateway_approval_blocks_then_resolves() -> None:
     session, policy_store, audit_store = _stores()
+    approval_queue = ApprovalQueue(session)
     policy_store.publish(policy_store.create_draft(PolicyCreateRequest(
         name="test",
         static_rules=[StaticRuleDTO(
-            id="approve_attachment",
-            name="Approve attachments",
+            id="approve_email",
+            name="Approve email",
             tool_match=ToolMatchDTO(kind="exact", value="gmail.send_email"),
             action=RuleAction.require_approval,
-            reason="Attachments need review.",
+            reason="Needs human review.",
         )],
     )).id)
-    approval_queue = ApprovalQueue(session)
 
-    response = handle_tool_call(
-        ToolCallRequest(
-            agent_id="a1",
-            tool="gmail.send_email",
-            args={"to": "accountant@example.com", "attachments": ["invoice.pdf"]},
-            context={},
-        ),
-        policy_store=policy_store,
-        audit_store=audit_store,
-        approval_queue=approval_queue,
-        settings=_settings(),
+    request = ToolCallRequest(
+        agent_id="a1",
+        tool="gmail.send_email",
+        args={"to": "accountant@example.com", "body": "Please review"},
+        context={},
     )
-    pending = approval_queue.list()
+
+    async def _run() -> Decision:
+        async def _resolver():
+            await asyncio.sleep(0.05)
+            pending = approval_queue.list()
+            if pending:
+                approval_queue.resolve(pending[0].id, "approve")
+
+        call_task = asyncio.create_task(handle_tool_call(
+            request,
+            policy_store=policy_store,
+            audit_store=audit_store,
+            approval_queue=approval_queue,
+            settings=Settings(GATEWAY_ADAPTER_SECRET="test-secret", APPROVAL_TIMEOUT_S=5),
+        ))
+        asyncio.create_task(_resolver())
+        response = await call_task
+        return response.decision
+
+    decision = asyncio.run(_run())
     session.close()
 
-    assert response.decision == Decision.approval_required
-    assert response.approval_id is not None
-    assert len(pending) == 1
-    assert pending[0].id == response.approval_id
+    assert decision == Decision.allow
 
 
 def test_gateway_upserts_agent_state() -> None:
     session, policy_store, audit_store = _stores()
     agent_store = AgentStore(session)
 
-    handle_tool_call(
+    asyncio.run(handle_tool_call(
         ToolCallRequest(agent_id="a1", agent_label="Deputy One", tool="gmail.read_inbox", args={}, context={}),
         policy_store=policy_store,
         audit_store=audit_store,
         agent_store=agent_store,
         settings=_settings(),
-    )
+    ))
     agents = agent_store.list()
     session.close()
 
-    assert agents == [{"id": "a1", "label": "Deputy One", "state": "active"}]
+    assert len(agents) == 1
+    assert agents[0].id == "a1"
+    assert agents[0].label == "Deputy One"
+    assert agents[0].state == "active"

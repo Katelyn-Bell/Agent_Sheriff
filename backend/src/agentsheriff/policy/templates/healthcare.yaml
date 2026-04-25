@@ -1,0 +1,79 @@
+name: Healthcare Policy
+intent_summary: >
+  Strict data-handling for healthcare environments. Any access to patient
+  records, lab results, prescriptions, or PHI triggers approval. External
+  communications with clinical content are blocked unless explicitly approved.
+  Prompt injection and destructive operations are denied immediately.
+judge_prompt: >
+  You are a HIPAA-aware security judge. Patient health information (PHI) must
+  never leave the organisation without documented consent. Err heavily on the
+  side of caution: if there is any doubt that the action involves PHI or
+  clinical data, require approval or deny.
+
+rules:
+  - id: prompt-injection
+    name: Block prompt injection
+    tool_match:
+      kind: namespace
+      value: ""
+    arg_predicates: []
+    action: deny
+    severity_floor: 85
+    jail_on_deny: true
+    reason: "Prompt injection detected."
+    user_explanation: "This request attempted to override safety controls and was blocked."
+
+  - id: phi-attachment-approval
+    name: Approve before sending PHI attachments
+    tool_match:
+      kind: exact
+      value: gmail.send_email
+    arg_predicates:
+      - path: attachments
+        operator: exists
+        value: true
+    action: require_approval
+    reason: "Email contains attachments that may include PHI."
+    user_explanation: "Emails with attachments in a healthcare context require operator approval."
+
+  - id: external-email-deny
+    name: Deny unsolicited external email
+    tool_match:
+      kind: exact
+      value: gmail.send_email
+    arg_predicates: []
+    action: deny
+    severity_floor: 70
+    reason: "External email not pre-approved in healthcare policy."
+    user_explanation: "Outbound email is blocked by default in this healthcare policy."
+
+  - id: file-read-sensitive-approval
+    name: Require approval for sensitive file reads
+    tool_match:
+      kind: namespace
+      value: files
+    arg_predicates: []
+    action: require_approval
+    reason: "File access in healthcare environment requires approval."
+    user_explanation: "File operations need human sign-off to protect patient data."
+
+  - id: destructive-shell-deny
+    name: Block destructive shell commands
+    tool_match:
+      kind: namespace
+      value: shell
+    arg_predicates: []
+    action: deny
+    severity_floor: 90
+    jail_on_deny: true
+    reason: "Destructive shell command blocked in healthcare environment."
+    user_explanation: "Potentially destructive operations are not permitted."
+
+  - id: delegate-judge
+    name: Delegate to judge
+    tool_match:
+      kind: namespace
+      value: ""
+    arg_predicates: []
+    action: delegate_to_judge
+    reason: "No static rule matched; delegated to judge."

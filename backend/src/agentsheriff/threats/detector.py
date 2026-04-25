@@ -55,6 +55,11 @@ class JudgeResult:
     severity_recommendation: int | None = None
 
 
+SENSITIVE_FILE_RE = re.compile(
+    r"(?i)(salary|passport|payroll|confidential|invoice|employees|customers|"
+    r"ssn|tax_return|credentials|secret|private[_-]?key)",
+)
+
 PROMPT_INJECTION_RE = re.compile(
     r"(ignore (all )?(previous|prior|above) instructions|system prompt|developer message|"
     r"jailbreak|prompt injection|exfiltrat|send.*secret|leak.*(secret|token|key))",

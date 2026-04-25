@@ -15,12 +15,12 @@ router = APIRouter(prefix="/v1", tags=["tool-calls"])
 
 
 @router.post("/tool-call", response_model=ToolCallResponse)
-def tool_call(
+async def tool_call(
     request: ToolCallRequest,
     app_request: Request,
     session: Session = Depends(get_session),
 ) -> ToolCallResponse:
-    return handle_tool_call(
+    return await handle_tool_call(
         request,
         policy_store=PolicyStore(session),
         audit_store=AuditStore(session),
