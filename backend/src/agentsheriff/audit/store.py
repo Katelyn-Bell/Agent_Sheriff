@@ -75,6 +75,30 @@ class AuditStore:
             statement = statement.where(AuditEntry.ts >= _parse_iso(since))
         return [self.to_dto(row) for row in self.session.scalars(statement).all()]
 
+    def apply_approval_resolution(
+        self,
+        *,
+        approval_id: str,
+        decision: Decision,
+        reason: str,
+        execution_summary: dict | None,
+        args: dict | None = None,
+        user_explanation: str | None = None,
+    ) -> AuditEntryDTO | None:
+        row = self.session.scalar(select(AuditEntry).where(AuditEntry.approval_id == approval_id))
+        if row is None:
+            return None
+        row.decision = decision.value
+        row.reason = reason
+        row.execution_summary = execution_summary
+        if args is not None:
+            row.args = args
+        if user_explanation is not None:
+            row.user_explanation = user_explanation
+        self.session.commit()
+        self.session.refresh(row)
+        return self.to_dto(row)
+
     @staticmethod
     def to_dto(row: AuditEntry) -> AuditEntryDTO:
         return AuditEntryDTO(

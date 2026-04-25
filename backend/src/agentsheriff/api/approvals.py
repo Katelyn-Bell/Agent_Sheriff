@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from agentsheriff.api.db import get_session
 from agentsheriff.approvals.queue import ApprovalQueue
+from agentsheriff.approvals.service import ApprovalService
 from agentsheriff.models.dto import ApprovalDTO, ApprovalResolveRequest, ApprovalState
 from agentsheriff.streams import hub
 
@@ -23,10 +24,11 @@ def list_approvals(
 def resolve_approval(
     approval_id: str,
     request: ApprovalResolveRequest,
+    app_request: Request,
     session: Session = Depends(get_session),
 ) -> ApprovalDTO:
     try:
-        approval = ApprovalQueue(session).resolve(approval_id, request.action)
+        approval = ApprovalService(session, app_request.app.state.settings).resolve(approval_id, request.action)
         hub.broadcast_nowait({"type": "approval", "payload": approval.model_dump(mode="json")})
         return approval
     except KeyError as exc:
