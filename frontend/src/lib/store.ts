@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   AgentStateDTO,
   ApprovalDTO,
@@ -50,7 +51,9 @@ export interface Snapshot {
   latestPolicy: PolicyVersionDTO | null;
 }
 
-export const useAppStore = create<StoreState>((set) => ({
+export const useAppStore = create<StoreState>()(
+  persist(
+    (set) => ({
   audit: [],
   approvals: {},
   agents: {},
@@ -116,7 +119,16 @@ export const useAppStore = create<StoreState>((set) => ({
     })),
 
   setUser: (user) => set({ user }),
-}));
+    }),
+    {
+      name: "agentsheriff-auth",
+      // Persist only the user slice — everything else is reactive to live
+      // backend state and would go stale across reloads.
+      partialize: (state) => ({ user: state.user }),
+      storage: createJSONStorage(() => localStorage),
+    },
+  ),
+);
 
 export const selectPendingApprovals = (s: StoreState) =>
   Object.values(s.approvals)

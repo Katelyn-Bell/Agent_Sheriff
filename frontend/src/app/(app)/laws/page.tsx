@@ -19,7 +19,7 @@ export default function TownLawsPage() {
         actions={
           draft && (
             <Link
-              href="/first-ride"
+              href="/new-policy"
               className="font-mono text-[11px] uppercase tracking-widest text-ink-soft underline-offset-4 hover:text-ink hover:underline"
             >
               Start over →
@@ -47,10 +47,10 @@ function EmptyState() {
         by generating one from intent.
       </p>
       <Link
-        href="/first-ride"
+        href="/new-policy"
         className="mt-4 inline-block border border-ink bg-brass-dark px-4 py-2 text-sm font-semibold text-parchment transition hover:bg-brass"
       >
-        Go to First Ride
+        Draft a new policy
       </Link>
     </div>
   );
