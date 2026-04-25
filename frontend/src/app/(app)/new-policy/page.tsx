@@ -1,26 +1,12 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { generatePolicy } from "@/lib/api";
+import { generatePolicy, listTools } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { Select } from "@/components/Select";
 import { useAppStore } from "@/lib/store";
-
-const DEFAULT_TOOL_MANIFEST = [
-  "gmail.read_inbox",
-  "gmail.send_email",
-  "calendar.create_event",
-  "calendar.list_events",
-  "files.read",
-  "files.write",
-  "shell.exec",
-  "github.push_branch",
-  "github.read_repo",
-  "browser.open_url",
-  "browser.read_page",
-];
 
 const DOMAIN_HINTS = [
   { value: "", label: "No specific domain" },
@@ -47,12 +33,19 @@ export default function NewPolicyPage() {
   const [userIntent, setUserIntent] = useState("");
   const [domainHint, setDomainHint] = useState("");
 
+  const toolsQuery = useQuery({
+    queryKey: ["tools"],
+    queryFn: ({ signal }) => listTools(signal),
+  });
+
+  const toolManifest = toolsQuery.data?.map((tool) => tool.id) ?? [];
+
   const mutation = useMutation({
     mutationFn: () =>
       generatePolicy({
         name: name.trim(),
         user_intent: userIntent.trim(),
-        tool_manifest: DEFAULT_TOOL_MANIFEST,
+        tool_manifest: toolManifest,
         domain_hint: domainHint || undefined,
       }),
     onSuccess: (result) => {
@@ -69,7 +62,9 @@ export default function NewPolicyPage() {
   });
 
   const canSubmit =
-    name.trim().length > 0 && userIntent.trim().length >= MIN_INTENT_CHARS;
+    name.trim().length > 0 &&
+    userIntent.trim().length >= MIN_INTENT_CHARS &&
+    toolManifest.length > 0;
 
   const createEmptyDraft = () => {
     setDraftPolicy({
@@ -161,17 +156,40 @@ export default function NewPolicyPage() {
             </div>
           )}
 
+          {toolsQuery.isError && (
+            <div className="border-l-4 border-wanted-red bg-parchment-deep/60 p-4">
+              <p className="font-heading text-base text-wanted-red">
+                Couldn&apos;t load tools
+              </p>
+              <p className="mt-1 text-sm text-ink-soft">
+                Start the backend gateway so AgentSheriff can draft laws from
+                the real tool manifest.
+              </p>
+              <button
+                type="button"
+                onClick={createEmptyDraft}
+                className="mt-3 text-sm text-wanted-red underline underline-offset-2 hover:opacity-80"
+              >
+                Start an empty draft instead →
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center gap-4 border-t border-brass/30 pt-6">
             <button
               type="submit"
-              disabled={!canSubmit || mutation.isPending}
+              disabled={!canSubmit || mutation.isPending || toolsQuery.isLoading}
               className="border border-ink bg-brass-dark px-6 py-3 text-base font-semibold text-parchment transition hover:bg-brass disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {mutation.isPending ? "Generating…" : "Draft my policy →"}
+              {toolsQuery.isLoading
+                ? "Loading tools…"
+                : mutation.isPending
+                  ? "Generating…"
+                  : "Draft my policy →"}
             </button>
             {!canSubmit && (
               <span className="font-mono text-[11px] uppercase tracking-widest text-ink-soft">
-                Name + {MIN_INTENT_CHARS}-char intent required
+                Name + {MIN_INTENT_CHARS}-char intent + tools required
               </span>
             )}
           </div>
@@ -212,6 +230,34 @@ export default function NewPolicyPage() {
               The output drops into Laws as a draft. Nothing publishes until
               you say so.
             </p>
+          </SidePanel>
+
+          <SidePanel title="Tool manifest">
+            {toolsQuery.isLoading ? (
+              <p className="text-sm text-ink-soft">
+                Loading the backend tool manifest…
+              </p>
+            ) : toolManifest.length > 0 ? (
+              <>
+                <p className="text-sm text-ink-soft">
+                  Drafting against {toolManifest.length} live backend tools.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {toolManifest.map((tool) => (
+                    <span
+                      key={tool}
+                      className="border border-brass/40 bg-parchment px-2 py-1 font-mono text-[10px] text-ink-soft"
+                    >
+                      {tool}
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-ink-soft">
+                No tools loaded. Start the backend or create a manual draft.
+              </p>
+            )}
           </SidePanel>
 
           <SidePanel title="Examples">
