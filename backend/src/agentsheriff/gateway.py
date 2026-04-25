@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from agentsheriff.adapters.manifest import DISPATCH, supported_tools
 from agentsheriff.agents import AgentStore
-from agentsheriff.approvals.queue import ApprovalQueue
+from agentsheriff.approvals.queue import ApprovalQueue, redact_args
 from agentsheriff.audit.store import AuditStore
 from agentsheriff.config import Settings
-from agentsheriff.models.dto import Decision, PolicyStatus, PolicyVersionDTO, RuleAction, ToolCallRequest, ToolCallResponse
+from agentsheriff.models.dto import ApprovalState, Decision, PolicyStatus, PolicyVersionDTO, RuleAction, ToolCallRequest, ToolCallResponse
 from agentsheriff.policy.engine import evaluate_static_rules
 from agentsheriff.policy.store import PolicyStore
 from agentsheriff.streams import hub
 from agentsheriff.threats import detect_threats, judge_tool_call
 
 
-def handle_tool_call(
+async def handle_tool_call(
     request: ToolCallRequest,
     *,
     policy_store: PolicyStore,
@@ -60,19 +60,48 @@ def handle_tool_call(
         reason = judge.rationale
         user_explanation = judge.user_explanation
 
+    # Auto-jail on deny when the matched rule requests it
+    if decision == Decision.deny and agent_store is not None:
+        matched_rule = _find_rule(evaluation.matched_rule_id, policy.static_rules)
+        if matched_rule is not None and matched_rule.jail_on_deny:
+            agent_store.transition(request.agent_id, "jailed")
+            hub.broadcast_nowait({"type": "agent_state", "payload": {"id": request.agent_id, "state": "jailed"}})
+
     execution_summary = None
     approval_id = None
+
     if decision == Decision.allow:
         execution_summary = DISPATCH[request.tool](args=request.args, gateway_token=settings.gateway_adapter_secret)
+
     elif decision == Decision.approval_required and approval_queue is not None:
         approval = approval_queue.create_pending(
             request=request,
             reason=reason,
             policy_version_id=policy.id,
             timeout_s=settings.approval_timeout_s,
+            user_explanation=user_explanation,
         )
         approval_id = approval.id
         hub.broadcast_nowait({"type": "approval", "payload": approval.model_dump(mode="json")})
+
+        resolved = await approval_queue.await_resolution(approval.id, settings.approval_timeout_s)
+
+        if resolved.state == ApprovalState.approved:
+            execution_summary = DISPATCH[request.tool](args=request.args, gateway_token=settings.gateway_adapter_secret)
+            decision = Decision.allow
+            reason = "Approved by operator."
+        elif resolved.state == ApprovalState.redacted:
+            redacted = redact_args(request.args)
+            execution_summary = DISPATCH[request.tool](args=redacted, gateway_token=settings.gateway_adapter_secret)
+            decision = Decision.allow
+            reason = "Approved with server-side redaction."
+            request = request.model_copy(update={"args": redacted})
+        elif resolved.state == ApprovalState.timed_out:
+            decision = Decision.deny
+            reason = "Approval timed out."
+        else:
+            decision = Decision.deny
+            reason = "Denied by operator."
 
     audit = audit_store.record(
         request=request,
@@ -90,6 +119,12 @@ def handle_tool_call(
     )
     hub.broadcast_nowait({"type": "audit", "payload": audit.model_dump(mode="json")})
     return _response_from_audit(audit)
+
+
+def _find_rule(rule_id: str | None, rules: list) -> object | None:
+    if rule_id is None:
+        return None
+    return next((r for r in rules if r.id == rule_id), None)
 
 
 def _decision_from_rule_action(action: RuleAction) -> Decision:

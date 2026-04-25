@@ -77,6 +77,7 @@ class Approval(Base):
     tool: Mapped[str] = mapped_column(String)
     args: Mapped[dict[str, Any]] = mapped_column(JSON)
     reason: Mapped[str] = mapped_column(Text)
+    user_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     policy_version_id: Mapped[str] = mapped_column(String, index=True)

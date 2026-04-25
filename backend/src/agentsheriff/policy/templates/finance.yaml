@@ -1,0 +1,80 @@
+name: Finance Policy
+intent_summary: >
+  Financial-sector policy. Invoice, payroll, and bank-related documents require
+  approval before any external communication. Prompt injection and destructive
+  operations are denied with automatic jailing. Credential exposure is denied
+  outright.
+judge_prompt: >
+  You are a finance security judge. Treat invoices, payroll files, bank
+  account details, and tax documents as highly sensitive. External emails and
+  file transfers involving financial data require explicit justification.
+  Deny any action that could result in financial data leaving the organisation
+  without clear authorisation.
+
+rules:
+  - id: prompt-injection
+    name: Block prompt injection
+    tool_match:
+      kind: namespace
+      value: ""
+    arg_predicates: []
+    action: deny
+    severity_floor: 85
+    jail_on_deny: true
+    reason: "Prompt injection detected."
+    user_explanation: "This request attempted to override safety controls and was blocked."
+
+  - id: financial-attachment-approval
+    name: Require approval for financial attachments
+    tool_match:
+      kind: exact
+      value: gmail.send_email
+    arg_predicates:
+      - path: attachments
+        operator: exists
+        value: true
+    action: require_approval
+    reason: "Email attachment may contain financial documents."
+    user_explanation: "Emails with attachments require approval to prevent inadvertent financial data disclosure."
+
+  - id: external-email-approval
+    name: Require approval for any external email
+    tool_match:
+      kind: exact
+      value: gmail.send_email
+    arg_predicates: []
+    action: require_approval
+    reason: "External email requires approval in finance policy."
+    user_explanation: "All outbound emails need operator review to protect financial information."
+
+  - id: destructive-shell-deny
+    name: Block destructive shell commands
+    tool_match:
+      kind: namespace
+      value: shell
+    arg_predicates: []
+    action: deny
+    severity_floor: 90
+    jail_on_deny: true
+    reason: "Destructive shell command blocked in finance environment."
+    user_explanation: "Potentially destructive operations are not permitted."
+
+  - id: git-force-push-deny
+    name: Deny force-push operations
+    tool_match:
+      kind: namespace
+      value: github
+    arg_predicates: []
+    action: deny
+    severity_floor: 60
+    reason: "Force operations on git history are blocked in finance policy."
+    user_explanation: "Git history rewrite operations are not permitted in this environment."
+
+  - id: delegate-judge
+    name: Delegate to judge
+    tool_match:
+      kind: namespace
+      value: ""
+    arg_predicates: []
+    action: delegate_to_judge
+    reason: "No static rule matched; delegated to judge."
