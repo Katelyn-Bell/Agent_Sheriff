@@ -7,10 +7,12 @@ Spec set for **AgentSheriff**: a local tool-call policy gateway for AI agents. I
 1. **[_shared-context.md](_shared-context.md)** — product definition, architecture, stack, locked repo layout, API contracts, and definition of done.
 2. **[integration-and-handoffs.md](integration-and-handoffs.md)** — shared DTOs, endpoint contracts, stream frames, env vars, and ownership boundaries.
 3. Per-person specs (pick your own):
-   - **[person-1-backend-core.md](person-1-backend-core.md)** — FastAPI gateway, policy versions, rule engine, approvals, audit ledger, eval APIs, and streams.
+   - **[person-1-backend-core.md](person-1-backend-core.md)** — FastAPI gateway, policy versions, rule engine, approvals, audit ledger, eval APIs, and streams. *(Round 1 — shipped)*
    - **[person-2-threats-simulator.md](person-2-threats-simulator.md)** — heuristics, judge helper, starter policy generation, replay evaluation helpers, Deputy Dusty, and scenario JSON.
    - **[person-3-dashboard-ui.md](person-3-dashboard-ui.md)** — Next.js 15 Old-West dashboard for policy authoring, approvals, audit, live activity, and evals.
    - **[person-4-adapters-openclaw-demo.md](person-4-adapters-openclaw-demo.md)** — adapter manifest, deterministic local adapters, OpenClaw bridge, and demo packaging.
+4. Round-2 hackathon specs (active):
+   - **[person-1-openclaw-bridge.md](person-1-openclaw-bridge.md)** — OpenClaw inbound translator, Kalshi-CLI capture, end-to-end smoke, prompt-injection scenario.
 
 ## Team
 
