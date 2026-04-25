@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
+import { Select } from "@/components/Select";
 import { useAppStore } from "@/lib/store";
 import type { AuditEntryDTO, Decision } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -265,17 +266,12 @@ function FilterSelect({
       <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-ink-soft">
         {label}
       </div>
-      <select
+      <Select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-ink/40 bg-parchment px-2 py-1.5 text-sm text-ink focus:border-brass focus:outline-none"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+        onChange={onChange}
+        options={options}
+        size="sm"
+      />
     </label>
   );
 }

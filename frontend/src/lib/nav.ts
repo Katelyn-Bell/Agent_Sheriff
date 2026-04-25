@@ -6,7 +6,7 @@ export interface NavRoute {
 
 export const NAV_ROUTES: readonly NavRoute[] = [
   { href: "/overview", label: "Overview", icon: "Home" },
-  { href: "/first-ride", label: "First Ride", icon: "Compass" },
+  { href: "/new-policy", label: "New Policy", icon: "Compass" },
   { href: "/laws", label: "Laws", icon: "Scale" },
   { href: "/ledger", label: "Ledger", icon: "BookOpen" },
   { href: "/approvals", label: "Approvals", icon: "ShieldCheck" },

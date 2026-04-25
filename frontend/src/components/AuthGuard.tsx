@@ -7,19 +7,27 @@ import { useAppStore } from "@/lib/store";
 
 type GuardStatus = "checking" | "authed" | "unauthed";
 
+const DEV_USER_ID = "dev-user";
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const user = useAppStore((s) => s.user);
   const setUser = useAppStore((s) => s.setUser);
+
+  // If a persisted user is already in the store on mount, show app
+  // immediately (no Checking-badge flash). Otherwise wait for getMe.
   const [status, setStatus] = useState<GuardStatus>(
     user ? "authed" : "checking",
   );
 
   useEffect(() => {
-    if (user) {
+    // Dev shortcut: keep the fake user authenticated without hitting
+    // the backend. Useful when demoing offline.
+    if (user?.id === DEV_USER_ID) {
       setStatus("authed");
       return;
     }
+
     let cancelled = false;
     (async () => {
       try {
@@ -29,6 +37,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         setStatus("authed");
       } catch {
         if (cancelled) return;
+        // Cookie missing or expired — clear cached user and bounce.
+        setUser(null);
         setStatus("unauthed");
         router.replace("/login");
       }
@@ -36,7 +46,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user, setUser, router]);
+  }, [user?.id, setUser, router]);
 
   if (status === "checking") {
     return (
