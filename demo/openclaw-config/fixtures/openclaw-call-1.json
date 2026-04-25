@@ -1,0 +1,12 @@
+{
+  "id": "oc-call-crypto-markets",
+  "conversation_id": "openclaw-kalshi-demo",
+  "task_id": "crypto-markets",
+  "prompt": "What Kalshi markets are open in the Crypto category?",
+  "tool_call": {
+    "tool": "shell.run",
+    "args": {
+      "command": "kalshi-cli markets list --category Crypto"
+    }
+  }
+}

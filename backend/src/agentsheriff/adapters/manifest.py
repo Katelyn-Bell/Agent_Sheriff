@@ -108,7 +108,7 @@ ALL_TOOLS: tuple[ToolDefinition, ...] = (
         namespace="shell",
         label="Run shell command",
         risk_hints=("local_execution", "destructive_command"),
-        args_schema_summary={"cmd": "Allowlisted shell command string."},
+        args_schema_summary={"command": "Shell command string.", "cmd": "Legacy alias for command."},
         replay_safe=False,
     ),
 )

@@ -1,0 +1,11 @@
+{
+  "id": "agentsheriff-shell-gateway",
+  "enabledByDefault": true,
+  "name": "AgentSheriff Shell Gateway",
+  "description": "Route OpenClaw exec/bash tool calls through AgentSheriff before execution",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

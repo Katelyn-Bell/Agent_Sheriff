@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+from typing import Any
+
 from agentsheriff.adapters.manifest import DISPATCH, supported_tools
 from agentsheriff.agents import AgentStore
 from agentsheriff.approvals.queue import ApprovalQueue, redact_args
@@ -33,6 +36,7 @@ async def handle_tool_call(
     settings: Settings,
     approval_queue: ApprovalQueue | None = None,
     agent_store: AgentStore | None = None,
+    notifier: Any = None,
 ) -> ToolCallResponse:
     if agent_store is not None:
         was_new = agent_store.get(request.agent_id) is None
@@ -100,7 +104,13 @@ async def handle_tool_call(
         approval_id = approval.id
         hub.broadcast_nowait({"type": "approval", "payload": approval.model_dump(mode="json")})
 
+        if notifier is not None:
+            asyncio.create_task(notifier.send_approval(approval))
+
         resolved = await approval_queue.await_resolution(approval.id, settings.approval_timeout_s)
+
+        if notifier is not None:
+            asyncio.create_task(notifier.edit_resolved(approval.id, resolved.state.value))
 
         if resolved.state == ApprovalState.approved:
             execution_summary = DISPATCH[request.tool](args=request.args, gateway_token=settings.gateway_adapter_secret)

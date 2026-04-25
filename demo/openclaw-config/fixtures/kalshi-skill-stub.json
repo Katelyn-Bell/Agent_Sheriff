@@ -1,0 +1,24 @@
+{
+  "id": "kalshi-trading",
+  "name": "Kalshi Trading",
+  "description": "Trade on Kalshi prediction markets through the kalshi-cli command-line tool.",
+  "metadata": {
+    "openclaw": {
+      "requires": {
+        "bins": ["kalshi-cli"]
+      }
+    }
+  },
+  "commands": [
+    "kalshi-cli markets list",
+    "kalshi-cli markets get",
+    "kalshi-cli markets orderbook",
+    "kalshi-cli orders create",
+    "kalshi-cli orders cancel",
+    "kalshi-cli orders cancel-all",
+    "kalshi-cli portfolio balance",
+    "kalshi-cli portfolio positions",
+    "kalshi-cli portfolio subaccounts transfer"
+  ],
+  "risky_flags": ["--prod", "cancel-all"]
+}
