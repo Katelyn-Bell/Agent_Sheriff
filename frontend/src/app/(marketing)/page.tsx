@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Tumbleweed } from "@/components/Tumbleweed";
 
 export default function MarketingLandingPage() {
   return (
@@ -58,8 +59,9 @@ function HowItWorks() {
   ];
 
   return (
-    <section className="border-t border-brass/40 bg-parchment-deep/40 py-20">
-      <div className="mx-auto w-full max-w-5xl px-8">
+    <section className="relative border-t border-brass/40 bg-parchment-deep/40 py-20">
+      <Tumbleweed />
+      <div className="relative z-10 mx-auto w-full max-w-5xl px-8">
         <div className="mb-10 text-center">
           <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-ink-soft">
             How it works
