@@ -44,6 +44,20 @@ def test_policy_api_create_publish_archive_contract(client: TestClient) -> None:
     assert archive_response.json()["status"] == "archived"
 
 
+def test_policy_generate_returns_frontend_usable_rules(client: TestClient) -> None:
+    response = client.post("/v1/policies/generate", json={
+        "name": "Finance assistant",
+        "user_intent": "Send finance updates and read inbox.",
+        "tool_manifest": ["gmail.read_inbox", "gmail.send_email", "github.push_branch"],
+    })
+
+    assert response.status_code == 200
+    rule_ids = {rule["id"] for rule in response.json()["static_rules"]}
+    assert "policy.generated.allow_gmail_read_inbox" in rule_ids
+    assert "policy.generated.review_email_attachments" in rule_ids
+    assert "policy.generated.block_force_push" in rule_ids
+
+
 def test_gateway_audit_and_eval_api_contract(client: TestClient) -> None:
     policy = client.post("/v1/policies", json={
         "name": "API policy",

@@ -4,9 +4,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from agentsheriff.audit.store import AuditStore
-from agentsheriff.evals import EvalStore
+from agentsheriff.evals import EvalStore, run_eval_task
 from agentsheriff.models.dto import Decision, PolicyCreateRequest, RuleAction, StaticRuleDTO, ToolCallRequest, ToolMatchDTO
-from agentsheriff.models.orm import Base
+from agentsheriff.models.orm import Base, PolicyVersion
 from agentsheriff.policy.store import PolicyStore
 
 
@@ -92,3 +92,31 @@ def test_eval_progress_callback_runs_per_row_and_completion() -> None:
 
     assert completed.processed_entries == 2
     assert progress == [(1, "running"), (2, "running"), (2, "completed")]
+
+
+def test_eval_background_task_marks_run_failed_on_setup_error() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    with Session() as session:
+        run = EvalStore(session).create_run(
+            PolicyStore(session).create_draft(PolicyCreateRequest(name="broken later")).id,
+            {},
+        )
+        policy_row = session.get(PolicyVersion, run.policy_version_id)
+        assert policy_row is not None
+        session.delete(policy_row)
+        session.commit()
+
+    progress: list[str] = []
+    run_eval_task(Session, run.id, {}, on_progress=lambda dto: progress.append(dto.status.value))
+
+    with Session() as session:
+        failed = EvalStore(session).get_run(run.id)
+        results = EvalStore(session).list_results(run.id)
+
+    assert failed is not None
+    assert failed.status == "failed"
+    assert progress == ["failed"]
+    assert results[0].audit_id == "eval_setup"
