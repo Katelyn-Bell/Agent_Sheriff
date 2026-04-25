@@ -5,7 +5,7 @@ import { useState } from "react";
 import {
   BookOpen,
   Calendar,
-  Code,
+  TrendingUp,
   Compass,
   FolderOpen,
   Gavel,
@@ -80,10 +80,10 @@ const USE_CASES: UseCaseOption[] = [
     summary: "Triages inbox, drafts replies, sends messages.",
   },
   {
-    value: "coding",
-    label: "Coding agent",
-    icon: Code,
-    summary: "Reads, writes, and pushes code.",
+    value: "betting",
+    label: "Betting / investing",
+    icon: TrendingUp,
+    summary: "Reads markets, places trades, manages a portfolio.",
   },
   {
     value: "research",
