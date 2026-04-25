@@ -16,6 +16,7 @@ import {
 import { NAV_ROUTES } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { UserMenu } from "./UserMenu";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Home,
@@ -74,6 +75,7 @@ export function Sidebar() {
         })}
       </nav>
 
+      <UserMenu />
       <ConnectionStatus />
     </aside>
   );
