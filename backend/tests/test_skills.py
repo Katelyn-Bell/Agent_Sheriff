@@ -114,7 +114,9 @@ def test_registry_kalshi_dto_shape_matches_sticky_note_contract() -> None:
     kalshi = next(skill for skill in skills if skill.id == "kalshi-trading")
     assert kalshi.base_command == "kalshi-cli"
     assert any(command.name == "orders create" for command in kalshi.commands)
-    assert "--prod" in kalshi.risky_flags
+    # The `## Command Reference` table drives the vocabulary; risky-subcommand
+    # tokens like `cancel-all` and `transfer` still surface as risky markers.
+    assert "::risky-subcommand" in kalshi.risky_flags
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +158,9 @@ def test_get_v1_skills_id_returns_full_command_vocabulary(client: TestClient) ->
     assert payload["id"] == "kalshi-trading"
     assert payload["base_command"] == "kalshi-cli"
     assert any(cmd["name"] == "orders create" for cmd in payload["commands"])
-    assert "--prod" in payload["risky_flags"]
+    # `## Command Reference` is now the source of truth — the table doesn't
+    # list `--prod`, so we verify the inherent risky-subcommand marker instead.
+    assert "::risky-subcommand" in payload["risky_flags"]
 
 
 def test_get_v1_skills_id_404s_for_unknown(client: TestClient) -> None:
@@ -169,10 +173,15 @@ def test_get_v1_skills_id_404s_for_unknown(client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_generate_skill_laws_fallback_emits_prod_approval_rule() -> None:
+def test_generate_skill_laws_fallback_emits_risky_subcommand_rule() -> None:
     parsed = get_parsed_skill("kalshi-trading")
     assert parsed is not None
-    settings = Settings(USE_LLM_CLASSIFIER=False, ANTHROPIC_API_KEY=None)
+    settings = Settings(
+        USE_LLM_CLASSIFIER=False,
+        ANTHROPIC_API_KEY=None,
+        OPENAI_API_KEY=None,
+        OPENROUTER_API_KEY=None,
+    )
 
     result = generate_skill_laws(parsed, "Trade up to $50/market on demo, never real money.", settings=settings)
 
@@ -180,12 +189,20 @@ def test_generate_skill_laws_fallback_emits_prod_approval_rule() -> None:
     assert result.judge_prompt
     rule_ids = [rule.id for rule in result.static_rules]
 
-    prod_rule = next(rule for rule in result.static_rules if "prod" in rule.id)
-    assert prod_rule.action is RuleAction.require_approval
-    assert prod_rule.tool_match.value == "shell.run"
-    assert prod_rule.skill_match is not None
-    assert prod_rule.skill_match.value == "kalshi-trading"
-    assert any(predicate.value == "--prod" for predicate in prod_rule.arg_predicates)
+    # The `## Command Reference` table drives the vocabulary, so risky-subcommand
+    # tokens like `cancel-all` / `transfer` should produce require_approval rules.
+    risky_subcmd_rule = next(
+        rule
+        for rule in result.static_rules
+        if rule.action is RuleAction.require_approval
+        and any(
+            predicate.value in {"cancel-all", "transfer"}
+            for predicate in rule.arg_predicates
+        )
+    )
+    assert risky_subcmd_rule.tool_match.value == "shell.run"
+    assert risky_subcmd_rule.skill_match is not None
+    assert risky_subcmd_rule.skill_match.value == "kalshi-trading"
 
     # Judge fallback rule must be present so unknown commands still get inspected.
     assert any(rule.action is RuleAction.delegate_to_judge for rule in result.static_rules)
@@ -199,16 +216,16 @@ def test_generate_skill_laws_with_mocked_llm_filters_hallucinated_flags() -> Non
     assert parsed is not None
 
     response_payload = {
-        "intent_summary": "Hold the line on real money.",
+        "intent_summary": "Hold the line on cancellations.",
         "judge_prompt": "Be conservative.",
         "static_rules": [
             {
-                "name": "Block real-money trades",
+                "name": "Block cancel-all",
                 "action": "deny",
-                "predicates": [{"operator": "contains", "value": "--prod"}],
+                "predicates": [{"operator": "contains", "value": "cancel-all"}],
                 "severity_floor": 95,
-                "reason": "Real money disabled by user law.",
-                "user_explanation": "You banned real-money trades.",
+                "reason": "Bulk cancellation disabled by user law.",
+                "user_explanation": "You banned cancel-all.",
             },
             {
                 # This one references a flag that does NOT exist in vocabulary — it must be dropped.
@@ -255,11 +272,11 @@ def test_generate_skill_laws_with_mocked_llm_filters_hallucinated_flags() -> Non
     )
 
     rule_names = [rule.name for rule in result.static_rules]
-    assert "Block real-money trades" in rule_names
+    assert "Block cancel-all" in rule_names
     assert "Hallucinated rule" not in rule_names
     assert "Match everything" not in rule_names
 
-    deny_rule = next(rule for rule in result.static_rules if rule.name == "Block real-money trades")
+    deny_rule = next(rule for rule in result.static_rules if rule.name == "Block cancel-all")
     assert deny_rule.action is RuleAction.deny
     assert deny_rule.tool_match.value == "shell.run"
     assert deny_rule.skill_match is not None
@@ -274,12 +291,18 @@ def test_generate_skill_laws_with_mocked_llm_filters_hallucinated_flags() -> Non
     assert "kalshi-cli" in system_text
     user_payload = json.loads(call["messages"][0]["content"])
     assert "vocabulary" in user_payload
-    assert "--prod" in user_payload["vocabulary"]["all_flags"]
+    # `cancel-all` is one of the table tokens; verify the LLM saw it.
+    all_tokens = set(user_payload["vocabulary"]["all_flags"]) | {
+        token
+        for command in user_payload["vocabulary"]["commands"]
+        for token in command["name"].split()
+    }
+    assert "cancel-all" in all_tokens
 
 
 def test_generate_skill_laws_post_endpoint(client: TestClient) -> None:
     # POST /v1/skills/{id}/generate-laws should hit the fallback path when the
-    # test environment has no Anthropic key configured.
+    # test environment has no LLM key configured.
     response = client.post(
         "/v1/skills/kalshi-trading/generate-laws",
         json={"user_intent": "Trade up to $50/market on demo, never real money."},
@@ -289,8 +312,11 @@ def test_generate_skill_laws_post_endpoint(client: TestClient) -> None:
     assert payload["intent_summary"]
     assert payload["judge_prompt"]
     assert payload["static_rules"]
+    # Risky-subcommand tokens from the `## Command Reference` table should
+    # produce predicates referencing them.
+    risky_tokens = {"cancel-all", "transfer"}
     assert any(
-        any(p.get("value") == "--prod" for p in rule.get("arg_predicates", []))
+        any(p.get("value") in risky_tokens for p in rule.get("arg_predicates", []))
         for rule in payload["static_rules"]
     )
 
@@ -301,3 +327,229 @@ def test_generate_skill_laws_post_endpoint_unknown_skill(client: TestClient) -> 
         json={"user_intent": "anything"},
     )
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Command Reference section extraction (REVISION B)
+# ---------------------------------------------------------------------------
+
+
+_COMMAND_REFERENCE_SAMPLE = textwrap.dedent(
+    """
+    ---
+    id: sample-skill
+    name: Sample Skill
+    description: A sample.
+    base_command: sample-cli
+    ---
+
+    # Sample Skill
+
+    Some prose with a fenced block that should be ignored once the table is present.
+
+    ```bash
+    sample-cli ignored --do-not-extract
+    ```
+
+    ## Command Reference
+
+    | Subcommand | Purpose |
+    | --- | --- |
+    | `auth login` | Log in. |
+    | `markets list` | List markets. |
+    | `orders cancel-all` | Cancel everything. |
+    | `portfolio transfer --from 1 --to 2` | Move funds (with flags). |
+    """
+).strip()
+
+
+def test_parser_prefers_command_reference_section() -> None:
+    skill = parse_skill_md(_COMMAND_REFERENCE_SAMPLE)
+    names = {command.name for command in skill.commands}
+    # The fenced-block invocation `ignored` should be skipped because the
+    # `## Command Reference` table is present and produces commands.
+    assert "ignored" not in names
+    assert {"auth login", "markets list", "orders cancel-all", "portfolio transfer"} <= names
+
+    cancel_all = next(c for c in skill.commands if c.name == "orders cancel-all")
+    assert "::risky-subcommand" in cancel_all.risky_flags
+
+    transfer = next(c for c in skill.commands if c.name == "portfolio transfer")
+    # Flags from the table cell should flow through to the parsed flags.
+    assert "--from" in transfer.flags
+    assert "--to" in transfer.flags
+
+
+def test_parser_falls_back_when_command_reference_absent() -> None:
+    # _SAMPLE_SKILL has no `## Command Reference` section; the legacy fenced-
+    # block scan should still extract commands.
+    skill = parse_skill_md(_SAMPLE_SKILL)
+    names = {command.name for command in skill.commands}
+    assert "markets list" in names
+    assert "orders create" in names
+
+
+def test_parser_handles_renamed_kalshi_fixture() -> None:
+    parsed = get_parsed_skill("kalshi-trading")
+    assert parsed is not None
+    names = {command.name for command in parsed.commands}
+    expected = {
+        "auth login",
+        "auth whoami",
+        "markets list",
+        "markets get",
+        "markets orderbook",
+        "orders create",
+        "orders list",
+        "orders cancel",
+        "orders cancel-all",
+        "portfolio balance",
+        "portfolio positions",
+        "portfolio subaccounts list",
+        "portfolio subaccounts transfer",
+    }
+    assert expected <= names
+    # The header row should not have been parsed as a command.
+    assert "Subcommand" not in names
+    assert "subcommand" not in names
+
+
+# ---------------------------------------------------------------------------
+# guardrails plumbing + coverage pass
+# ---------------------------------------------------------------------------
+
+
+def test_generate_skill_laws_forwards_guardrails_to_payload() -> None:
+    parsed = get_parsed_skill("kalshi-trading")
+    assert parsed is not None
+
+    captured: dict[str, Any] = {}
+
+    class _StubMessages:
+        def create(self, **kwargs: Any) -> Any:
+            captured.update(kwargs)
+
+            class _Resp:
+                content = [
+                    {
+                        "type": "text",
+                        "text": json.dumps(
+                            {
+                                "intent_summary": "ok",
+                                "judge_prompt": "ok",
+                                "static_rules": [
+                                    {
+                                        "name": "Allow markets list",
+                                        "action": "allow",
+                                        "predicates": [
+                                            {"operator": "contains", "value": "markets list"}
+                                        ],
+                                        "reason": "read-only",
+                                    }
+                                ],
+                                "notes": [],
+                            }
+                        ),
+                    }
+                ]
+
+            return _Resp()
+
+    class _StubClient:
+        messages = _StubMessages()
+
+    settings = Settings(USE_LLM_CLASSIFIER=True, ANTHROPIC_API_KEY="test-key")
+
+    result = generate_skill_laws(
+        parsed,
+        "Watch the markets.",
+        "Never place real-money trades; never use --prod.",
+        settings=settings,
+        llm_client=_StubClient(),
+    )
+
+    user_payload = json.loads(captured["messages"][0]["content"])
+    assert user_payload["guardrails"] == "Never place real-money trades; never use --prod."
+    assert user_payload["user_intent"] == "Watch the markets."
+
+    # The generated judge_prompt must wrap the guardrails inside delimited tags
+    # so a malicious guardrails string can't escape the framing.
+    assert "<guardrails>Never place real-money trades; never use --prod.</guardrails>" in result.judge_prompt
+    assert "<user_intent>Watch the markets.</user_intent>" in result.judge_prompt
+
+
+def test_generate_skill_laws_post_endpoint_accepts_guardrails(client: TestClient) -> None:
+    response = client.post(
+        "/v1/skills/kalshi-trading/generate-laws",
+        json={
+            "user_intent": "Watch the markets.",
+            "guardrails": "Never place real-money trades.",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    # Even on the deterministic fallback path the guardrails should be folded
+    # into the judge prompt template.
+    assert "<guardrails>Never place real-money trades.</guardrails>" in payload["judge_prompt"]
+
+
+def test_generate_skill_laws_coverage_pass_fills_uncovered_commands() -> None:
+    parsed = get_parsed_skill("kalshi-trading")
+    assert parsed is not None
+
+    # The LLM only returns a rule for one command; every other command should
+    # get an auto-coverage `require_approval` rule appended.
+    response_payload = {
+        "intent_summary": "narrow",
+        "judge_prompt": "be careful",
+        "static_rules": [
+            {
+                "name": "Allow markets list",
+                "action": "allow",
+                "predicates": [{"operator": "contains", "value": "markets list"}],
+                "reason": "read-only",
+            }
+        ],
+        "notes": [],
+    }
+
+    class _StubMessages:
+        def create(self, **kwargs: Any) -> Any:
+            class _Resp:
+                content = [{"type": "text", "text": json.dumps(response_payload)}]
+
+            return _Resp()
+
+    class _StubClient:
+        messages = _StubMessages()
+
+    settings = Settings(USE_LLM_CLASSIFIER=True, ANTHROPIC_API_KEY="test-key")
+
+    result = generate_skill_laws(
+        parsed,
+        "Watch the markets.",
+        settings=settings,
+        llm_client=_StubClient(),
+    )
+
+    # Every command in the skill should now have at least one rule referencing it.
+    for command in parsed.commands:
+        assert any(
+            any(predicate.value == command.name for predicate in rule.arg_predicates)
+            or any(command.name in (predicate.value or "") for predicate in rule.arg_predicates)
+            for rule in result.static_rules
+        ), f"command {command.name!r} was not covered"
+
+    # The auto-added rules should default to require_approval and carry the
+    # documented reason string.
+    auto_rules = [
+        rule
+        for rule in result.static_rules
+        if rule.reason == "AI had no recommendation for this command — review."
+    ]
+    assert auto_rules, "expected at least one auto-coverage rule"
+    for rule in auto_rules:
+        assert rule.action is RuleAction.require_approval
+
+    # Notes should flag that auto-coverage happened.
+    assert any("Auto-added" in note for note in result.notes)

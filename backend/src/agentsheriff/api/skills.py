@@ -34,4 +34,4 @@ def generate_laws_for_skill(
     parsed = get_parsed_skill(skill_id)
     if parsed is None:
         raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' is not installed.")
-    return generate_skill_laws(parsed, request.user_intent).to_response()
+    return generate_skill_laws(parsed, request.user_intent, request.guardrails).to_response()

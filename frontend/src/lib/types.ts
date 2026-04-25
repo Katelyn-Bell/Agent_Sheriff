@@ -146,7 +146,12 @@ export interface SkillDTO {
 
 export interface SkillLawGenerationRequest {
   user_intent: string;
+  guardrails?: string | null;
 }
+
+export type RuleOverrideAction = "allow" | "require_approval" | "deny";
+
+export type RuleOverrides = Record<string, RuleOverrideAction>;
 
 export interface EvalRunDTO {
   id: string;
