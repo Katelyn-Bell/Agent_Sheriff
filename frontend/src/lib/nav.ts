@@ -5,12 +5,12 @@ export interface NavRoute {
 }
 
 export const NAV_ROUTES: readonly NavRoute[] = [
-  { href: "/", label: "Town Overview", icon: "Home" },
+  { href: "/", label: "Overview", icon: "Home" },
   { href: "/first-ride", label: "First Ride", icon: "Compass" },
-  { href: "/laws", label: "Town Laws", icon: "Scale" },
-  { href: "/ledger", label: "Sheriff's Ledger", icon: "BookOpen" },
-  { href: "/approvals", label: "Badge Approval", icon: "ShieldCheck" },
+  { href: "/laws", label: "Laws", icon: "Scale" },
+  { href: "/ledger", label: "Ledger", icon: "BookOpen" },
+  { href: "/approvals", label: "Approvals", icon: "ShieldCheck" },
   { href: "/deputies", label: "Deputies", icon: "UserRound" },
-  { href: "/wanted", label: "Wanted Board", icon: "Skull" },
-  { href: "/evals", label: "Trial Records", icon: "Gavel" },
+  { href: "/wanted", label: "Wanted", icon: "Skull" },
+  { href: "/evals", label: "Evals", icon: "Gavel" },
 ] as const;
