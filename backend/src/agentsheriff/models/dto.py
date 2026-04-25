@@ -162,6 +162,7 @@ class AuditEntryDTO(BaseModel):
     risk_score: int
     reason: str
     matched_rule_id: str | None
+    heuristic_summary: dict[str, Any] = Field(default_factory=dict)
     judge_used: bool
     judge_rationale: str | None = None
     policy_version_id: str
