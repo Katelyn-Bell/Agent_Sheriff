@@ -1,0 +1,17 @@
+{
+  "agent_id": "deputy-dusty",
+  "agent_label": "Deputy Dusty",
+  "tool": "calendar.create_event",
+  "args": {
+    "title": "Team trail check-in",
+    "attendees": ["team@example.com"],
+    "start": "2026-04-25T15:00:00-04:00",
+    "duration_minutes": 30
+  },
+  "context": {
+    "task_id": "dusty-good",
+    "source_prompt": "Schedule a quick internal team check-in.",
+    "source_content": "Everyone on the team can attend this afternoon.",
+    "conversation_id": "demo-good"
+  }
+}

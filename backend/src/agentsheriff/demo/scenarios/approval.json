@@ -1,0 +1,17 @@
+{
+  "agent_id": "deputy-dusty",
+  "agent_label": "Deputy Dusty",
+  "tool": "gmail.send_email",
+  "args": {
+    "to": "accountant@external.example",
+    "subject": "Draft invoice for review",
+    "body": "Please review the attached invoice draft before I send the final copy.",
+    "attachments": ["invoice_draft.pdf"]
+  },
+  "context": {
+    "task_id": "dusty-approval",
+    "source_prompt": "Send the invoice draft to the external accountant for review.",
+    "source_content": "The invoice is not final, but it does include financial details.",
+    "conversation_id": "demo-approval"
+  }
+}
