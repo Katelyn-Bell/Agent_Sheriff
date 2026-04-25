@@ -3,6 +3,7 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from agentsheriff.approvals.queue import ApprovalQueue
 from agentsheriff.audit.store import AuditStore
 from agentsheriff.config import Settings
 from agentsheriff.gateway import handle_tool_call
@@ -113,3 +114,38 @@ def test_gateway_denies_unknown_tool() -> None:
 
     assert response.decision == Decision.deny
     assert response.policy_version_id == "pv_unvalidated"
+
+
+def test_gateway_creates_pending_approval_from_static_rule() -> None:
+    session, policy_store, audit_store = _stores()
+    policy_store.publish(policy_store.create_draft(PolicyCreateRequest(
+        name="test",
+        static_rules=[StaticRuleDTO(
+            id="approve_attachment",
+            name="Approve attachments",
+            tool_match=ToolMatchDTO(kind="exact", value="gmail.send_email"),
+            action=RuleAction.require_approval,
+            reason="Attachments need review.",
+        )],
+    )).id)
+    approval_queue = ApprovalQueue(session)
+
+    response = handle_tool_call(
+        ToolCallRequest(
+            agent_id="a1",
+            tool="gmail.send_email",
+            args={"to": "accountant@example.com", "attachments": ["invoice.pdf"]},
+            context={},
+        ),
+        policy_store=policy_store,
+        audit_store=audit_store,
+        approval_queue=approval_queue,
+        settings=_settings(),
+    )
+    pending = approval_queue.list()
+    session.close()
+
+    assert response.decision == Decision.approval_required
+    assert response.approval_id is not None
+    assert len(pending) == 1
+    assert pending[0].id == response.approval_id

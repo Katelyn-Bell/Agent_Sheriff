@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from agentsheriff.api.db import get_session
+from agentsheriff.approvals.queue import ApprovalQueue
 from agentsheriff.audit.store import AuditStore
 from agentsheriff.gateway import handle_tool_call
 from agentsheriff.models.dto import ToolCallRequest, ToolCallResponse
@@ -23,4 +24,5 @@ def tool_call(
         policy_store=PolicyStore(session),
         audit_store=AuditStore(session),
         settings=app_request.app.state.settings,
+        approval_queue=ApprovalQueue(session),
     )

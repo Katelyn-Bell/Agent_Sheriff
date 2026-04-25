@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from agentsheriff.adapters.manifest import DISPATCH, supported_tools
+from agentsheriff.approvals.queue import ApprovalQueue
 from agentsheriff.audit.store import AuditStore
 from agentsheriff.config import Settings
 from agentsheriff.models.dto import Decision, PolicyStatus, PolicyVersionDTO, RuleAction, ToolCallRequest, ToolCallResponse
@@ -9,7 +10,14 @@ from agentsheriff.policy.store import PolicyStore
 from agentsheriff.threats.detector import detect_threats, judge_tool_call
 
 
-def handle_tool_call(request: ToolCallRequest, *, policy_store: PolicyStore, audit_store: AuditStore, settings: Settings) -> ToolCallResponse:
+def handle_tool_call(
+    request: ToolCallRequest,
+    *,
+    policy_store: PolicyStore,
+    audit_store: AuditStore,
+    settings: Settings,
+    approval_queue: ApprovalQueue | None = None,
+) -> ToolCallResponse:
     if request.tool not in supported_tools():
         audit = audit_store.record(
             request=request,
@@ -47,8 +55,17 @@ def handle_tool_call(request: ToolCallRequest, *, policy_store: PolicyStore, aud
         user_explanation = judge.user_explanation
 
     execution_summary = None
+    approval_id = None
     if decision == Decision.allow:
         execution_summary = DISPATCH[request.tool](args=request.args, gateway_token=settings.gateway_adapter_secret)
+    elif decision == Decision.approval_required and approval_queue is not None:
+        approval = approval_queue.create_pending(
+            request=request,
+            reason=reason,
+            policy_version_id=policy.id,
+            timeout_s=settings.approval_timeout_s,
+        )
+        approval_id = approval.id
 
     audit = audit_store.record(
         request=request,
@@ -60,6 +77,7 @@ def handle_tool_call(request: ToolCallRequest, *, policy_store: PolicyStore, aud
         judge_rationale=judge_rationale,
         policy_version_id=policy.id,
         heuristic_summary=threat_report.summary(),
+        approval_id=approval_id,
         execution_summary=execution_summary,
         user_explanation=user_explanation,
     )
