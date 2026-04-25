@@ -299,7 +299,7 @@ export default function OnboardPage() {
   };
 
   return (
-    <main className="flex flex-1 items-center justify-center p-10">
+    <main className="flex flex-1 items-center justify-center p-8">
       <div className="w-full max-w-4xl">
         <ProgressBar current={stepIndex} total={STEPS.length} label={step.label} />
 
@@ -378,8 +378,8 @@ function ProgressBar({
   label: string;
 }) {
   return (
-    <div className="mb-10">
-      <div className="mb-3 flex items-center justify-between font-mono text-xs uppercase tracking-[0.22em] text-ink-soft">
+    <div className="mb-8">
+      <div className="mb-2.5 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.22em] text-ink-soft">
         <span>
           Step{" "}
           <span className="text-ink">{String(current + 1).padStart(2, "0")}</span>{" "}
@@ -387,12 +387,12 @@ function ProgressBar({
         </span>
         <span className="text-ink">{label}</span>
       </div>
-      <div className="flex gap-1.5">
+      <div className="flex gap-1">
         {Array.from({ length: total }).map((_, i) => (
           <div
             key={i}
             className={cn(
-              "h-1.5 flex-1 border border-ink/30",
+              "h-1 flex-1 border border-ink/30",
               i <= current ? "bg-brass-dark" : "bg-parchment",
             )}
           />
@@ -416,9 +416,11 @@ function StepShell({
   footer: React.ReactNode;
 }) {
   return (
-    <section className="border border-brass/40 bg-parchment p-10 shadow-[4px_4px_0_#2b1810] md:p-14">
+    <section className="border border-brass/40 bg-parchment p-8 shadow-[4px_4px_0_#2b1810] md:p-12">
       <div className="mb-2 flex items-center gap-3">
-        <h2 className="font-heading text-4xl text-ink md:text-5xl">{title}</h2>
+        <h2 className="font-heading text-3xl text-ink md:text-[2.5rem] md:leading-tight">
+          {title}
+        </h2>
         {required && (
           <span className="font-mono text-[10px] uppercase tracking-widest text-wanted-red">
             required
@@ -426,12 +428,12 @@ function StepShell({
         )}
       </div>
       {hint && (
-        <p className="mb-8 max-w-2xl text-base leading-relaxed text-ink-soft">
+        <p className="mb-6 max-w-2xl text-sm leading-relaxed text-ink-soft">
           {hint}
         </p>
       )}
-      <div className="mb-10">{children}</div>
-      <div className="flex items-center justify-between border-t border-brass/30 pt-6">
+      <div className="mb-8">{children}</div>
+      <div className="flex items-center justify-between border-t border-brass/30 pt-5">
         {footer}
       </div>
     </section>
@@ -457,7 +459,7 @@ function NavButton({
         type={type}
         onClick={onClick}
         disabled={disabled}
-        className="border border-ink bg-brass-dark px-8 py-3 text-base font-semibold text-parchment transition hover:bg-brass disabled:cursor-not-allowed disabled:opacity-50"
+        className="border border-ink bg-brass-dark px-6 py-2.5 text-sm font-semibold text-parchment transition hover:bg-brass disabled:cursor-not-allowed disabled:opacity-50"
       >
         {children}
       </button>
@@ -468,7 +470,7 @@ function NavButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className="font-mono text-xs uppercase tracking-widest text-ink-soft underline-offset-4 transition hover:text-ink hover:underline disabled:opacity-50"
+      className="font-mono text-[11px] uppercase tracking-widest text-ink-soft underline-offset-4 transition hover:text-ink hover:underline disabled:opacity-50"
     >
       {children}
     </button>
@@ -477,25 +479,25 @@ function NavButton({
 
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
-    <section className="border border-brass/40 bg-parchment p-12 text-center shadow-[4px_4px_0_#2b1810] md:p-16">
-      <div className="mb-8 flex justify-center text-brass-dark">
-        <svg width="96" height="96" aria-hidden>
+    <section className="border border-brass/40 bg-parchment p-10 text-center shadow-[4px_4px_0_#2b1810] md:p-14">
+      <div className="mb-6 flex justify-center text-brass-dark">
+        <svg width="80" height="80" aria-hidden>
           <use href="#sheriff-star" />
         </svg>
       </div>
-      <h1 className="font-heading text-5xl leading-tight text-ink md:text-7xl">
+      <h1 className="font-heading text-4xl leading-tight text-ink md:text-6xl">
         You are the Sheriff now
       </h1>
-      <p className="mx-auto mt-8 max-w-2xl text-xl leading-relaxed text-ink">
+      <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-ink">
         Every AI agent that wants to run a tool (send an email, push code,
         open a browser) now has to come through your office first. You set
         the laws. AgentSheriff enforces them.
       </p>
-      <p className="mx-auto mt-5 max-w-xl text-base text-ink-soft">
+      <p className="mx-auto mt-4 max-w-xl text-sm text-ink-soft">
         Eight quick steps: a welcome, a tour of the office, then a few
         questions so we can draft a starter policy.
       </p>
-      <div className="mt-10">
+      <div className="mt-8">
         <NavButton variant="primary" onClick={onNext}>
           Begin →
         </NavButton>
@@ -578,7 +580,7 @@ function UseCaseStep({
         </>
       }
     >
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         {USE_CASES.map((opt) => {
           const Icon = opt.icon;
           const selected = value === opt.value;
@@ -588,7 +590,7 @@ function UseCaseStep({
               type="button"
               onClick={() => onChange(opt.value)}
               className={cn(
-                "flex h-full flex-col items-start gap-3 border p-6 text-left transition",
+                "flex h-full flex-col items-start gap-2 border p-5 text-left transition",
                 selected
                   ? "border-ink bg-brass-dark text-parchment shadow-[4px_4px_0_#2b1810]"
                   : "border-ink/40 bg-parchment text-ink hover:border-ink hover:shadow-[3px_3px_0_#2b1810]",
@@ -596,16 +598,16 @@ function UseCaseStep({
             >
               <Icon
                 className={cn(
-                  "h-8 w-8",
+                  "h-7 w-7",
                   selected ? "text-parchment" : "text-brass-dark",
                 )}
               />
-              <span className="font-heading text-2xl leading-tight">
+              <span className="font-heading text-xl leading-tight">
                 {opt.label}
               </span>
               <span
                 className={cn(
-                  "text-sm leading-relaxed",
+                  "text-[13px] leading-snug",
                   selected ? "text-parchment/80" : "text-ink-soft",
                 )}
               >
@@ -660,7 +662,7 @@ function ToolsStep({
               type="button"
               onClick={() => toggle(t.value)}
               className={cn(
-                "flex items-center gap-4 border p-5 text-left transition",
+                "flex items-center gap-3 border p-4 text-left transition",
                 selected
                   ? "border-ink bg-brass-dark text-parchment shadow-[4px_4px_0_#2b1810]"
                   : "border-ink/40 bg-parchment text-ink hover:border-ink hover:shadow-[3px_3px_0_#2b1810]",
@@ -668,13 +670,13 @@ function ToolsStep({
             >
               <Icon
                 className={cn(
-                  "h-7 w-7",
+                  "h-6 w-6",
                   selected ? "text-parchment" : "text-brass-dark",
                 )}
               />
-              <span className="font-heading text-2xl">{t.label}</span>
+              <span className="font-heading text-xl">{t.label}</span>
               {selected && (
-                <span className="ml-auto font-mono text-xs uppercase tracking-widest">
+                <span className="ml-auto font-mono text-[10px] uppercase tracking-widest">
                   ✓ on
                 </span>
               )}
@@ -682,7 +684,7 @@ function ToolsStep({
           );
         })}
       </div>
-      <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-ink-soft">
+      <p className="mt-3 font-mono text-[10px] uppercase tracking-widest text-ink-soft">
         {value.length} selected
       </p>
     </StepShell>
@@ -724,13 +726,13 @@ function ConcernsStep({
               type="button"
               onClick={() => toggle(c)}
               className={cn(
-                "border p-4 text-left transition",
+                "border p-3 text-left transition",
                 selected
                   ? "border-ink bg-brass-dark text-parchment shadow-[3px_3px_0_#2b1810]"
                   : "border-ink/40 bg-parchment text-ink hover:border-ink",
               )}
             >
-              <span className="font-heading text-lg leading-snug">{c}</span>
+              <span className="font-heading text-base leading-snug">{c}</span>
               {selected && (
                 <span className="mt-1 block font-mono text-[10px] uppercase tracking-widest opacity-80">
                   ✓ flagged
@@ -769,7 +771,7 @@ function RiskStep({
         </>
       }
     >
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-3">
         {RISK_OPTIONS.map((opt) => {
           const selected = value === opt.value;
           return (
@@ -778,18 +780,18 @@ function RiskStep({
               type="button"
               onClick={() => onChange(opt.value)}
               className={cn(
-                "flex flex-col items-start gap-3 border p-6 text-left transition",
+                "flex flex-col items-start gap-2 border p-5 text-left transition",
                 selected
                   ? "border-ink bg-brass-dark text-parchment shadow-[4px_4px_0_#2b1810]"
                   : "border-ink/40 bg-parchment text-ink hover:border-ink hover:shadow-[3px_3px_0_#2b1810]",
               )}
             >
-              <span className="font-heading text-3xl leading-none">
+              <span className="font-heading text-2xl leading-none">
                 {opt.label}
               </span>
               <span
                 className={cn(
-                  "text-sm leading-relaxed",
+                  "text-[13px] leading-relaxed",
                   selected ? "text-parchment/80" : "text-ink-soft",
                 )}
               >
@@ -830,9 +832,9 @@ function NotesStep({
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        rows={6}
+        rows={5}
         placeholder="e.g. Only send mail to addresses ending in @acme.com. Never push to the main branch."
-        className="w-full border border-ink/40 bg-parchment-deep/40 px-5 py-4 text-lg text-ink transition focus:border-ink focus:outline-none focus:ring-2 focus:ring-brass/30"
+        className="w-full border border-ink/40 bg-parchment-deep/40 px-4 py-3 text-base text-ink transition focus:border-ink focus:outline-none focus:ring-2 focus:ring-brass/30"
       />
     </StepShell>
   );
@@ -884,7 +886,7 @@ function NameStep({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Finance inbox assistant"
-        className="w-full border border-ink/40 bg-parchment-deep/40 px-5 py-4 text-2xl font-heading text-ink transition focus:border-ink focus:outline-none focus:ring-2 focus:ring-brass/30"
+        className="w-full border border-ink/40 bg-parchment-deep/40 px-4 py-3 text-xl font-heading text-ink transition focus:border-ink focus:outline-none focus:ring-2 focus:ring-brass/30"
         maxLength={80}
       />
       {isError && (
