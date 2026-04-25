@@ -40,8 +40,9 @@ async function rehydrateFromRest() {
 export function useAppStream() {
   const applyFrame = useAppStore((s) => s.applyFrame);
   const setConnection = useAppStore((s) => s.setConnection);
+  const authVerified = useAppStore((s) => s.authVerified);
 
-  const { readyState, lastMessage } = useWebSocket(WS_URL, {
+  const { readyState, lastMessage } = useWebSocket(authVerified ? WS_URL : null, {
     shouldReconnect: () => true,
     reconnectAttempts: 1000,
     reconnectInterval: 2000,

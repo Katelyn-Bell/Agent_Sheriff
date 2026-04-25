@@ -26,10 +26,15 @@ def judge_tool_call(
     llm_client: _LLMClient | None = None,
 ) -> JudgeResult:
     active_settings = settings or Settings()
-    if not active_settings.use_llm_classifier or (llm_client is None and not active_settings.anthropic_api_key):
+    has_key = active_settings.openrouter_api_key or active_settings.anthropic_api_key
+    if not active_settings.use_llm_classifier or (llm_client is None and not has_key):
         return _fallback_judge(request, threat_report)
 
-    client = llm_client or _anthropic_client(active_settings.anthropic_api_key)
+    client = (
+        llm_client
+        or _openrouter_client(active_settings.openrouter_api_key, active_settings.openrouter_model)
+        or _anthropic_client(active_settings.anthropic_api_key)
+    )
     if client is None:
         return _fallback_judge(request, threat_report)
 
@@ -135,6 +140,62 @@ def _anthropic_client(api_key: str | None) -> _LLMClient | None:
     except ImportError:
         return None
     return Anthropic(api_key=api_key)
+
+
+def _openrouter_client(api_key: str | None, model: str) -> _LLMClient | None:
+    if not api_key:
+        return None
+    try:
+        from openai import OpenAI
+    except ImportError:
+        return None
+    raw = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1")
+    return _OpenRouterAdapter(raw, model)
+
+
+class _OpenRouterAdapter:
+    """Wraps the OpenAI-compatible OpenRouter client to match the _LLMClient protocol."""
+
+    def __init__(self, client: Any, model: str) -> None:
+        self.messages = _OpenRouterMessages(client, model)
+
+
+class _OpenRouterMessages:
+    def __init__(self, client: Any, model: str) -> None:
+        self._client = client
+        self._model = model
+
+    def create(self, **kwargs: Any) -> Any:
+        messages: list[dict[str, str]] = []
+        system = kwargs.get("system")
+        if system:
+            if isinstance(system, list):
+                system_text = "\n\n".join(
+                    item.get("text", "") if isinstance(item, dict) else str(item)
+                    for item in system
+                )
+            else:
+                system_text = str(system)
+            messages.append({"role": "system", "content": system_text})
+        for msg in kwargs.get("messages", []):
+            messages.append({"role": msg["role"], "content": str(msg["content"])})
+
+        response = self._client.chat.completions.create(
+            model=self._model,
+            max_tokens=kwargs.get("max_tokens", 700),
+            temperature=kwargs.get("temperature", 0),
+            messages=messages,
+        )
+        try:
+            text = response.choices[0].message.content or ""
+        except (AttributeError, IndexError):
+            text = str(response)
+        return _OpenRouterResponse(text)
+
+
+class _OpenRouterResponse:
+    def __init__(self, text: str) -> None:
+        self.content = text
 
 
 def _response_text(response: Any) -> str:
