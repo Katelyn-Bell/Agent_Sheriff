@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from agentsheriff.adapters.manifest import DISPATCH, supported_tools
+from agentsheriff.agents import AgentStore
 from agentsheriff.approvals.queue import ApprovalQueue
 from agentsheriff.audit.store import AuditStore
 from agentsheriff.config import Settings
@@ -17,7 +18,11 @@ def handle_tool_call(
     audit_store: AuditStore,
     settings: Settings,
     approval_queue: ApprovalQueue | None = None,
+    agent_store: AgentStore | None = None,
 ) -> ToolCallResponse:
+    if agent_store is not None:
+        agent_store.upsert_seen(request.agent_id, request.agent_label)
+
     if request.tool not in supported_tools():
         audit = audit_store.record(
             request=request,
