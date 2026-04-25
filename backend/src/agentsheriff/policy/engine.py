@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from agentsheriff.models.dto import RuleAction, StaticRuleDTO, ToolCallRequest
+from agentsheriff.models.dto import RuleAction, StaticRuleDTO, ToolCallContext, ToolCallRequest
 
 
 @dataclass(frozen=True)
@@ -22,6 +22,8 @@ def evaluate_static_rules(
     base_risk_score: int = 0,
 ) -> PolicyEvaluation:
     for rule in rules:
+        if not _skill_matches(request.context, rule):
+            continue
         if _tool_matches(request.tool, rule) and _predicates_match(request.args, rule):
             risk_score = max(base_risk_score, rule.severity_floor or 0)
             return PolicyEvaluation(
@@ -39,6 +41,19 @@ def evaluate_static_rules(
         reason="No static rule matched; delegated to judge.",
         user_explanation=None,
     )
+
+
+def _skill_matches(context: ToolCallContext, rule: StaticRuleDTO) -> bool:
+    if rule.skill_match is None:
+        return True
+    if context.skill_id is None:
+        return False
+    if rule.skill_match.kind == "exact":
+        return context.skill_id == rule.skill_match.value
+    if rule.skill_match.kind == "prefix":
+        prefix = rule.skill_match.value.rstrip("-")
+        return context.skill_id == prefix or context.skill_id.startswith(f"{prefix}-")
+    return False
 
 
 def _tool_matches(tool: str, rule: StaticRuleDTO) -> bool:

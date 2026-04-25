@@ -79,13 +79,13 @@ class DemoRunResponse(BaseModel):
 
 
 @router.post("/run", response_model=DemoRunResponse)
-def run_demo(
+async def run_demo(
     request: DemoRunRequest,
     app_request: Request,
     session: Session = Depends(get_session),
 ) -> DemoRunResponse:
     tool_call = _SCENARIOS[request.scenario]
-    result = handle_tool_call(
+    result = await handle_tool_call(
         tool_call,
         policy_store=PolicyStore(session),
         audit_store=AuditStore(session),

@@ -11,6 +11,10 @@ class AgentStore:
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    def get(self, agent_id: str) -> AgentDTO | None:
+        row = self.session.get(Agent, agent_id)
+        return self.to_dto(row) if row is not None else None
+
     def upsert_seen(self, agent_id: str, label: str | None) -> AgentDTO:
         row = self.session.get(Agent, agent_id)
         if row is None:
