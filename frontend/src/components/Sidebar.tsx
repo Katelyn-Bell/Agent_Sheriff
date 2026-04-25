@@ -41,9 +41,13 @@ export function Sidebar() {
         href="/overview"
         className="flex items-center gap-3 px-2 text-brass-dark transition hover:text-wanted-red"
       >
-        <svg width="32" height="32" aria-hidden>
-          <use href="#sheriff-star" />
-        </svg>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo-mascot.png"
+          alt=""
+          aria-hidden
+          className="h-8 w-8 object-contain"
+        />
         <span className="font-heading text-xl leading-none text-ink">
           AgentSheriff
         </span>
