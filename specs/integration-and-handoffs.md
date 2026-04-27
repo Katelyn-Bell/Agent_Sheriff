@@ -339,7 +339,7 @@ This ordering is intentionally closer to CrabTrap's rule-first shape, while keep
 | `ANTHROPIC_API_KEY` | P1/P2 | unset | Enables judge path when present |
 | `USE_LLM_CLASSIFIER` | P2 | `1` | `0` forces rules-only mode |
 | `FRONTEND_ORIGIN` | P1 | `http://localhost:3000` | CORS |
-| `APPROVAL_TIMEOUT_S` | P1 | `120` | Approval expiry |
+| `APPROVAL_TIMEOUT_S` | P1 | `300` | Approval expiry |
 | `GATEWAY_ADAPTER_SECRET` | P1/P4 | unset | Required at startup |
 | `AGENTSHERIFF_MOCK_FS` | P4 | `./mock-fs` | Mock adapter root |
 | `AGENTSHERIFF_BASE_URL` | P2 | `http://localhost:8000` | Dusty base URL |

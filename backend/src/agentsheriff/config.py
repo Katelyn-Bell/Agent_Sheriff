@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         default=["http://localhost:3000", "http://127.0.0.1:3000"],
         alias="FRONTEND_ORIGINS",
     )
-    approval_timeout_s: int = Field(default=120, alias="APPROVAL_TIMEOUT_S")
+    approval_timeout_s: int = Field(default=300, alias="APPROVAL_TIMEOUT_S")
     gateway_adapter_secret: str = Field(default="dev-gateway-secret", alias="GATEWAY_ADAPTER_SECRET")
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
     openrouter_api_key: str | None = Field(default=None, alias="OPENROUTER_API_KEY")
@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
     telegram_chat_id: str | None = Field(default=None, alias="TELEGRAM_CHAT_ID")
+    telegram_poll_callbacks: bool = Field(default=False, alias="TELEGRAM_POLL_CALLBACKS")
 
     google_client_id: str = Field(default="", alias="GOOGLE_CLIENT_ID")
     google_client_secret: str = Field(default="", alias="GOOGLE_CLIENT_SECRET")

@@ -20,6 +20,12 @@ def _session():
     return Session()
 
 
+def _session_factory(database_url: str = "sqlite:///:memory:"):
+    engine = create_engine(database_url, connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
 def _request() -> ToolCallRequest:
     return ToolCallRequest(
         agent_id="a1",
@@ -87,9 +93,31 @@ def test_await_resolution_unblocks_on_resolve() -> None:
         resolved = await queue.await_resolution(approval.id, timeout_s=5)
         return resolved.state
 
-    state = asyncio.get_event_loop().run_until_complete(_drive())
+    state = asyncio.run(_drive())
     assert state == ApprovalState.approved
     session.close()
+
+
+def test_await_resolution_unblocks_when_resolved_from_thread(tmp_path) -> None:
+    Session = _session_factory(f"sqlite:///{tmp_path / 'approvals.db'}")
+    waiting_session = Session()
+    resolving_session = Session()
+    queue = ApprovalQueue(waiting_session)
+    approval = queue.create_pending(request=_request(), reason="Needs review", policy_version_id="pv_1", timeout_s=10)
+
+    async def _drive() -> ApprovalState:
+        async def _resolver():
+            await asyncio.sleep(0.05)
+            await asyncio.to_thread(ApprovalQueue(resolving_session).resolve, approval.id, "approve")
+
+        asyncio.create_task(_resolver())
+        resolved = await asyncio.wait_for(queue.await_resolution(approval.id, timeout_s=5), timeout=1)
+        return resolved.state
+
+    state = asyncio.run(_drive())
+    assert state == ApprovalState.approved
+    resolving_session.close()
+    waiting_session.close()
 
 
 def test_await_resolution_times_out() -> None:
@@ -101,7 +129,7 @@ def test_await_resolution_times_out() -> None:
         resolved = await queue.await_resolution(approval.id, timeout_s=1)
         return resolved.state
 
-    state = asyncio.get_event_loop().run_until_complete(_drive())
+    state = asyncio.run(_drive())
     assert state == ApprovalState.timed_out
     session.close()
 

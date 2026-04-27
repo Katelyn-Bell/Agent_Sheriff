@@ -10,6 +10,7 @@ import type {
   StreamFrame,
   UserDTO,
 } from "./types";
+import { mergeAgentState, normalizeAgentState } from "./agents";
 
 export interface DraftPolicy {
   name: string;
@@ -79,12 +80,18 @@ export const useAppStore = create<StoreState>()(
             approvals: { ...s.approvals, [frame.payload.id]: frame.payload },
           };
         case "agent_state":
-          return {
-            agents: {
-              ...s.agents,
-              [frame.payload.agent_id]: frame.payload,
-            },
-          };
+          {
+            const next = mergeAgentState(
+              s.agents[normalizeAgentState(frame.payload).agent_id],
+              frame.payload,
+            );
+            return {
+              agents: {
+                ...s.agents,
+                [next.agent_id]: next,
+              },
+            };
+          }
         case "policy_published":
           return { latestPolicy: frame.payload };
         case "eval_progress":
@@ -103,7 +110,12 @@ export const useAppStore = create<StoreState>()(
         ? Object.fromEntries(snap.approvals.map((a) => [a.id, a]))
         : s.approvals,
       agents: snap.agents
-        ? Object.fromEntries(snap.agents.map((a) => [a.agent_id, a]))
+        ? Object.fromEntries(
+            snap.agents.map((a) => {
+              const next = normalizeAgentState(a);
+              return [next.agent_id, next];
+            }),
+          )
         : s.agents,
       evals: snap.evals
         ? Object.fromEntries(snap.evals.map((e) => [e.id, e]))

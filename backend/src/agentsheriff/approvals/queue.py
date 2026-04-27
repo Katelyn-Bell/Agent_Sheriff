@@ -14,6 +14,7 @@ from agentsheriff.policy.store import utc_iso
 
 # Module-level event store: approval_id -> asyncio.Event
 _approval_events: dict[str, asyncio.Event] = {}
+_approval_event_loops: dict[str, asyncio.AbstractEventLoop] = {}
 
 
 class ApprovalQueue:
@@ -47,6 +48,7 @@ class ApprovalQueue:
         self.session.commit()
         self.session.refresh(row)
         _approval_events[row.id] = asyncio.Event()
+        _approval_event_loops[row.id] = _current_loop()
         return self.to_dto(row)
 
     async def await_resolution(self, approval_id: str, timeout_s: int) -> ApprovalDTO:
@@ -62,6 +64,7 @@ class ApprovalQueue:
             timed_out = True
         finally:
             _approval_events.pop(approval_id, None)
+            _approval_event_loops.pop(approval_id, None)
 
         self.session.expire_all()
         row = self.session.get(Approval, approval_id)
@@ -93,9 +96,7 @@ class ApprovalQueue:
         self.session.commit()
         self.session.refresh(row)
         dto = self.to_dto(row)
-        event = _approval_events.get(approval_id)
-        if event is not None:
-            event.set()
+        _notify_event(approval_id)
         return dto
 
     def expire_pending(self) -> list[ApprovalDTO]:
@@ -111,7 +112,8 @@ class ApprovalQueue:
                 self.session.refresh(row)
                 event = _approval_events.pop(row.id, None)
                 if event is not None:
-                    event.set()
+                    _notify_event(row.id, event=event)
+                    _approval_event_loops.pop(row.id, None)
         return [self.to_dto(row) for row in rows]
 
     @staticmethod
@@ -144,6 +146,29 @@ def _missing_approval(approval_id: str) -> ApprovalDTO:
         expires_at=now,
         policy_version_id="unknown",
     )
+
+
+def _current_loop() -> asyncio.AbstractEventLoop | None:
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+
+
+def _notify_event(approval_id: str, event: asyncio.Event | None = None) -> None:
+    event = event or _approval_events.get(approval_id)
+    if event is None:
+        return
+
+    loop = _approval_event_loops.get(approval_id)
+    if loop is not None and loop.is_running():
+        if _current_loop() is loop:
+            event.set()
+        else:
+            loop.call_soon_threadsafe(event.set)
+        return
+
+    event.set()
 
 
 def redact_args(args: dict[str, Any]) -> dict[str, Any]:

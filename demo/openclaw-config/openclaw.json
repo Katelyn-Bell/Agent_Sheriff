@@ -1,0 +1,17 @@
+{
+  "env": {
+    "OPENROUTER_API_KEY": "${OPENROUTER_API_KEY}"
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openrouter/anthropic/claude-opus-4.7"
+      },
+      "models": {
+        "openrouter/anthropic/claude-opus-4.7": {
+          "alias": "Claude Opus 4.7 via OpenRouter"
+        }
+      }
+    }
+  }
+}

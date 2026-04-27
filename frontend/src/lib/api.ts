@@ -1,5 +1,4 @@
 import type {
-  AgentStateDTO,
   ApprovalDTO,
   ApprovalResolution,
   AuditEntryDTO,
@@ -17,6 +16,7 @@ import type {
   ToolCallResponse,
   UserDTO,
 } from "./types";
+import { normalizeAgentState, type RawAgentStateDTO } from "./agents";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
@@ -175,16 +175,24 @@ export const resolveApproval = (id: string, action: ApprovalResolution) =>
 
 // Agents
 export const listAgents = (signal?: AbortSignal) =>
-  apiFetch<AgentStateDTO[]>("/v1/agents", { signal });
+  apiFetch<RawAgentStateDTO[]>("/v1/agents", { signal }).then((agents) =>
+    agents.map(normalizeAgentState),
+  );
 
 export const jailAgent = (id: string) =>
-  apiFetch<AgentStateDTO>(`/v1/agents/${id}/jail`, { method: "POST" });
+  apiFetch<RawAgentStateDTO>(`/v1/agents/${id}/jail`, { method: "POST" }).then(
+    normalizeAgentState,
+  );
 
 export const releaseAgent = (id: string) =>
-  apiFetch<AgentStateDTO>(`/v1/agents/${id}/release`, { method: "POST" });
+  apiFetch<RawAgentStateDTO>(`/v1/agents/${id}/release`, {
+    method: "POST",
+  }).then(normalizeAgentState);
 
 export const revokeAgent = (id: string) =>
-  apiFetch<AgentStateDTO>(`/v1/agents/${id}/revoke`, { method: "POST" });
+  apiFetch<RawAgentStateDTO>(`/v1/agents/${id}/revoke`, {
+    method: "POST",
+  }).then(normalizeAgentState);
 
 // Demo (scenario trigger — not in integration-and-handoffs.md endpoint freeze;
 // backend needs to implement POST /v1/demo/run for demo-launcher buttons).

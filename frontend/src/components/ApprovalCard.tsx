@@ -6,7 +6,7 @@ import { resolveApproval } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { ApprovalDTO, ApprovalResolution } from "@/lib/types";
 
-const DEFAULT_TOTAL_MS = 120_000;
+const DEFAULT_TOTAL_MS = 300_000;
 const URGENT_THRESHOLD_MS = 10_000;
 
 export function ApprovalCard({ approval }: { approval: ApprovalDTO }) {

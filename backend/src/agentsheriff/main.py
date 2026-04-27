@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
@@ -22,8 +23,10 @@ from agentsheriff.api.policies import router as policies_router
 from agentsheriff.api.skills import router as skills_router
 from agentsheriff.api.tool_calls import router as tool_calls_router
 from agentsheriff.api.tools import router as tools_router
+from agentsheriff.approvals.service import ApprovalService
 from agentsheriff.config import Settings, get_settings
 from agentsheriff.models.orm import Base, build_engine, build_session_factory
+from agentsheriff.streams import hub
 from agentsheriff.streams import router as stream_router
 
 logger = logging.getLogger(__name__)
@@ -37,10 +40,7 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(fapp: FastAPI) -> AsyncIterator[None]:
-        # Telegram callback handling is delegated to the OpenClaw plugin
-        # at demo/openclaw-config/plugins/agentsheriff-telegram-callbacks/
-        # which forwards button taps to POST /v1/approvals/{id}.
-        # We only send/edit messages here — no polling.
+        telegram_poll_task: asyncio.Task[None] | None = None
         if settings.telegram_bot_token and settings.telegram_chat_id:
             from agentsheriff.notifications import TelegramApprovalNotifier
             fapp.state.notifier = TelegramApprovalNotifier(
@@ -48,8 +48,21 @@ def create_app() -> FastAPI:
                 settings.telegram_chat_id,
             )
             logger.info("telegram_notifier_started chat_id=%s", settings.telegram_chat_id)
+            if settings.telegram_poll_callbacks:
+                telegram_poll_task = asyncio.create_task(_poll_telegram_callbacks(fapp))
+                logger.info("telegram_callback_poller_started")
+            else:
+                logger.info("telegram_callback_poller_disabled")
 
-        yield
+        try:
+            yield
+        finally:
+            if telegram_poll_task is not None:
+                telegram_poll_task.cancel()
+                try:
+                    await telegram_poll_task
+                except asyncio.CancelledError:
+                    pass
 
     app = FastAPI(title="AgentSheriff Gateway", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
@@ -102,3 +115,15 @@ def get_db() -> Iterator[Session]:
 
 def get_app_settings() -> Settings:
     return app.state.settings
+
+
+async def _poll_telegram_callbacks(fapp: FastAPI) -> None:
+    notifier = fapp.state.notifier
+
+    async def resolve(approval_id: str, action: str) -> None:
+        with fapp.state.session_factory() as session:
+            approval = ApprovalService(session, fapp.state.settings).resolve(approval_id, action)
+        hub.broadcast_nowait({"type": "approval", "payload": approval.model_dump(mode="json")})
+        logger.info("telegram_approval_resolved approval_id=%s action=%s", approval_id, action)
+
+    await notifier.poll(resolve)

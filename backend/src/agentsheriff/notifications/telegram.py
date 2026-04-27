@@ -117,14 +117,14 @@ class TelegramApprovalNotifier:
                             f"{self._base}/answerCallbackQuery",
                             json={"callback_query_id": cq["id"]},
                         )
-                        data: str = cq.get("data", "")
-                        if ":" not in data:
+                        parsed = parse_callback_data(cq.get("data", ""))
+                        if parsed is None:
                             continue
-                        action, approval_id = data.split(":", 1)
+                        action, approval_id = parsed
                         try:
                             await on_callback(approval_id, action)
                         except Exception:
-                            logger.exception("telegram_callback_error data=%s", data)
+                            logger.exception("telegram_callback_error data=%s", cq.get("data", ""))
                 except asyncio.CancelledError:
                     return
                 except httpx.HTTPStatusError as exc:
@@ -145,3 +145,18 @@ def _esc(text: str) -> str:
     """Escape special characters for Telegram MarkdownV2."""
     special = r"\_*[]()~`>#+-=|{}.!"
     return "".join(f"\\{c}" if c in special else c for c in text)
+
+
+def parse_callback_data(data: str) -> tuple[str, str] | None:
+    """Return (action, approval_id) for AgentSheriff approval callbacks."""
+    parts = data.split(":")
+    if len(parts) == 2:
+        action, approval_id = parts
+    elif len(parts) == 3 and parts[0] == "agentsheriff":
+        _, action, approval_id = parts
+    else:
+        return None
+
+    if action not in {"approve", "deny", "redact"} or not approval_id:
+        return None
+    return action, approval_id
